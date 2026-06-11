@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>碎玉 · 战斗原型 — Shattered Jade battle prototype</title>
+<!-- fonts load async: a slow/blocked CDN must never blank the page -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lxgw-wenkai-webfont@1.7.0/style.css" media="print" onload="this.media='all'">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;700&display=swap" media="print" onload="this.media='all'">
+<style>
+  :root {
+    --paper: #ece3cd; --paper-dark: #e0d4b8; --ink: #2b2620; --ink-soft: #5b5346;
+    --player: #1b4965; --enemy: #8c2f1b; --gold: #b8860b;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--paper); color: var(--ink);
+    font-family: "LXGW WenKai", "Noto Serif SC", "Songti SC", Georgia, serif;
+    display: flex; flex-direction: column; height: 100vh; overflow: hidden;
+  }
+  header {
+    display: flex; align-items: baseline; gap: 16px; padding: 8px 16px;
+    border-bottom: 2px solid var(--ink-soft); background: var(--paper-dark);
+    flex: 0 0 auto;
+  }
+  header h1 { font-size: 20px; margin: 0; letter-spacing: 2px; }
+  header .sub { font-size: 12px; color: var(--ink-soft); }
+  header .spacer { flex: 1; }
+  button {
+    font-family: inherit; font-size: 14px; padding: 5px 14px; cursor: pointer;
+    background: var(--ink); color: var(--paper); border: none; border-radius: 3px;
+  }
+  button:hover { background: #463f35; }
+  button:disabled { background: #9a917f; cursor: default; }
+  select#scenpick {
+    font-family: inherit; font-size: 13px; padding: 3px 6px;
+    background: var(--paper); color: var(--ink); border: 1px solid var(--ink-soft);
+    border-radius: 3px;
+  }
+  #main { display: flex; flex: 1 1 auto; min-height: 0; }
+  #boardwrap { flex: 1 1 auto; overflow: hidden; display: flex; align-items: center; justify-content: center; padding: 4px; position: relative; }
+  svg#board { display: block; width: 100%; height: 100%; }
+  #skillbar {
+    position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%);
+    display: none; gap: 6px; background: rgba(43,38,32,.92); padding: 6px 8px;
+    border-radius: 6px; z-index: 5;
+  }
+  #skillbar button.skill {
+    display: flex; flex-direction: column; align-items: center; gap: 1px;
+    background: #463f35; color: var(--paper); border: 1px solid #6b6254;
+    min-width: 74px; font-size: 14px; padding: 4px 10px; border-radius: 4px;
+  }
+  #skillbar button.skill span { font-size: 10px; color: #c9bda0; }
+  #skillbar button.skill.sel { background: var(--gold); border-color: #e8c14f; color: #fff; }
+  #skillbar button.skill.sel span { color: #f4e3b6; }
+  #skillbar button.skill:disabled { opacity: .4; cursor: default; }
+  #skillbar button.endbtn { background: #6e3328; }
+  #panel {
+    flex: 0 0 330px; border-left: 2px solid var(--ink-soft); background: var(--paper-dark);
+    display: flex; flex-direction: column; min-height: 0;
+  }
+  #panel h3 {
+    margin: 0; padding: 6px 12px 4px; font-size: 13px; letter-spacing: 1px;
+    color: var(--ink-soft); border-bottom: 1px solid #c9bda0;
+  }
+  #turnorder { padding: 6px 10px; display: flex; flex-wrap: wrap; gap: 4px; }
+  .chip {
+    font-size: 12px; padding: 2px 8px; border-radius: 10px; color: #fff; opacity: .55;
+  }
+  .chip.cur { opacity: 1; outline: 2px solid var(--gold); }
+  .chip.done { opacity: .25; text-decoration: line-through; }
+  #unitcard {
+    position: absolute; left: 10px; bottom: 10px; z-index: 5;
+    display: none; max-width: 250px;
+    background: rgba(43,38,32,.92); color: var(--paper);
+    padding: 8px 12px; font-size: 13px; line-height: 1.55; border-radius: 6px;
+  }
+  #unitcard b { color: #f0d9a6; }
+  #unitcard i { color: #c9bda0; }
+  #hoverinfo {
+    padding: 8px 12px; font-size: 12.5px; line-height: 1.45; min-height: 130px;
+    font-family: "Noto Sans SC", sans-serif; white-space: pre-line;
+  }
+  #hoverinfo .pct { font-size: 19px; font-weight: bold; }
+  #log {
+    flex: 1 1 auto; overflow-y: auto; padding: 8px 12px; font-size: 12px;
+    line-height: 1.55; font-family: "Noto Sans SC", sans-serif;
+  }
+  #log .r { color: #6b3a2a; }
+  #log .b { color: #24506e; }
+  #log .sys { color: var(--ink-soft); font-style: italic; }
+  #log div { margin-bottom: 2px; border-bottom: 1px dotted #d6cab0; padding-bottom: 2px; }
+  .hex { stroke: #8d8268; stroke-width: 1; cursor: default; }
+  .hex.reach { cursor: pointer; }
+  .hex.reach:hover { stroke: var(--player); stroke-width: 3.5; }
+  .unit { cursor: default; }
+  .unit.attackable { cursor: pointer; }
+  .unit circle.body { stroke: #1d1a15; stroke-width: 1.5; }
+  .unit.active circle.body { stroke: var(--gold); stroke-width: 3; }
+  .unit.attackable circle.ring { stroke: #c0392b; stroke-width: 2.5; stroke-dasharray: 4 3; }
+  .glyph { fill: #f5efe0; font-size: 19px; text-anchor: middle; pointer-events: none;
+           font-family: "LXGW WenKai", "Noto Serif SC", serif; }
+  #hoverinfo .nm { font-family: "LXGW WenKai", "Noto Serif SC", serif; font-size: 15px; }
+  .float {
+    font-size: 15px; font-weight: bold; text-anchor: middle; pointer-events: none;
+    font-family: "Noto Sans SC", sans-serif;
+    animation: rise 1.1s ease-out forwards;
+  }
+  @keyframes rise { from { opacity: 1; } to { opacity: 0; transform: translateY(-26px); } }
+  #overlay {
+    position: fixed; inset: 0; background: rgba(40,34,26,.78); display: none;
+    align-items: center; justify-content: center; flex-direction: column; gap: 18px;
+    color: var(--paper); z-index: 10; text-align: center;
+  }
+  #overlay h2 { font-size: 42px; margin: 0; letter-spacing: 8px; }
+  #overlay p { max-width: 460px; line-height: 1.7; }
+</style>
+</head>
+<body>
+<header>
+  <h1>碎玉 · 战斗原型</h1>
+  <select id="scenpick">
+    <option value="jiebiao">劫镖 · 山道伏击</option>
+    <option value="gongzhai">攻寨 · 强袭山寨</option>
+  </select>
+  <span class="sub" id="subtitle"></span>
+  <span class="spacer"></span>
+  <span class="sub" id="roundlabel">第 1 回合</span>
+  <button id="endturn">结束行动 End Turn ⏎</button>
+  <button id="restart">重开 Restart</button>
+</header>
+<div id="main">
+  <div id="boardwrap"><svg id="board"></svg><div id="unitcard"></div><div id="skillbar"></div></div>
+  <div id="panel">
+    <h3>行动顺序 · 先手在前（按身法与气力）</h3>
+    <div id="turnorder"></div>
+    <h3>命中推演 · 悬停敌人 ／ 右键查任何人</h3>
+    <div id="hoverinfo">将鼠标移到红圈敌人上，查看完整命中计算。</div>
+    <h3>战斗记录 · 所有骰子公开</h3>
+    <div id="log"></div>
+  </div>
+</div>
+<div id="overlay">
+  <h2 id="ovtitle"></h2>
+  <p id="ovtext"></p>
+  <button onclick="location.reload()">再战一场</button>
+</div>
+<script src="game.js?v=019"></script>
+</body>
+</html>
