@@ -820,6 +820,20 @@ timelines are how side projects die — hitting month 6 still in M1 is *on pace*
 
 ## 10. Changelog
 
+**v0.19 (2026-06-11)** — four approved improvements shipped. (1) **Version control**:
+repo initialized and pushed to github.com/zhaoleli2025/Shattered_jade (commits per
+feature from here on). (2) **Garrison AI rule** (both implementations): scenario JSON
+units take `"garrison": N` — the AI holds within N hexes of its post while still
+fighting anything in reach; all five 攻寨 defenders garrisoned, so the village finally
+defends itself. (3) **攻寨 tuned by experiment**: entrenched baseline measured 12.6%
+attacker; four lever combinations batch-tested; adopted variant D — 燕小乙 joins (5
+attackers), 正门 widened to two hexes, 夜猫子 down to village ground (坐山雕 alone on
+the 峰) — landing **45.8% over 800 seeds** (target 40–50; sieges now run ~16 rounds).
+Combat ruleset is now **frozen pending M1** — no new rules, tuning only. (4)
+**Battle-end summary screen**: per-unit damage/kills/fate (存活/溃走/阵亡) and battle
+length on the victory/defeat overlay. HUD finalized BB-style: unit card bottom-left,
+skill bar bottom-center, side panel = 行动顺序/命中推演/战斗记录. 69 tests green.
+
 **v0.18 (2026-06-11)** — 攻寨 rebuilt as a **true mountain village** (user direction):
 four elevation layers (valley 0 → slopes 丘 1 → village ground 岭 2 → summit 峰 3,
 BB's full tier ladder; elev3 supported in scenario JSON, sim, and renderer), and the
