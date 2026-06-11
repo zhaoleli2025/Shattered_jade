@@ -1,4 +1,4 @@
-# Shattered Jade (碎玉) — Design Document v0.12
+# Shattered Jade (碎玉) — Design Document v0.21
 
 > **Title: Shattered Jade (碎玉)** — final, 2026-06-11. 宁为玉碎，不为瓦全 ("better
 > shattered jade than intact tile"): the permadeath creed in two characters — your
@@ -218,7 +218,8 @@ formations — surfaced by onboarding (F14), not buried.
 ### 3.1 Action economy — two stacked resources
 
 - **AP**: 9 per turn, full refresh. Move 2 AP flat or road / 3 rough / 4 paddy-water;
-  +1 per elevation change. Most 1H attacks 4 AP; heavy 2H attacks 6 AP.
+  +1 per level climbed (uphill only — both implementations charge nothing downhill;
+  wording fixed v0.21). Most 1H attacks 4 AP; heavy 2H attacks 6 AP.
 - **Switching weapons** (to a bagged sidearm) costs **4 AP** — the pinned archer's
   dagger, the spearman's backup saber. A Quick-Hands-style technique makes the first
   swap each turn free (later).
@@ -233,7 +234,9 @@ formations — surfaced by onboarding (F14), not buried.
   strike. Max Breath is reduced by carried weight (armor, helmet, weapon, shield).
   Being struck drains extra (−5; hammers and maces more). Jiangshi never tire.
 - **Initiative** = base − Breath spent − weight penalty, recomputed each round, highest
-  first. The 轻功 *Lightness* technique converts current initiative into defense — so
+  first. *(M0 implements base − Breath spent only; the explicit weight term is deferred
+  to M1 — armor weight already taxes max Breath, so heavies still slide as they tire.)*
+  The 轻功 *Lightness* technique converts current initiative into defense — so
   exhaustion erodes exactly the builds that depend on speed.
 
 ### 3.2 Damage model — two-layer, per-body-part
@@ -337,8 +340,9 @@ Ordering a withdrawal is a per-man action: each escort must reach the deployment
 alive — free strikes apply, fleeing men exert no ZoC, and **the struck-down save (§3.9)
 is disabled while retreating** (so retreat-spam can't launder casualties). The fallen's
 gear is lost with them. Campaign cost: −fame, contract failure penalties, possible
-pursuit on the overworld. Retreat is a core skill — "know when to say no" — and the
-sim schema includes it from M0.
+pursuit on the overworld. Retreat is a core skill — "know when to say no". *(M0 ships
+only the involuntary rout-flee path; the ordered per-man Withdraw command joins the
+schema in M1.)*
 
 ### 3.9 Injuries — the tactical↔strategic bridge
 
@@ -717,6 +721,8 @@ resource axes (枪 spear: accuracy+spearwall · 刀 saber: bleed · 锤 mace: ar
 pytest green; AI-vs-AI batches show no dominant strategy across the 4 weapons;
 damage/hit distributions match BB reference values. Batch simulation is this
 developer's unfair advantage — keep the tooling forever, but hard-stop the milestone.
+*(Scope deferrals, recorded v0.21: vision/fog, ranged scatter, and the ordered
+Withdraw command were consciously pushed to M1 — neither implementation has them.)*
 
 **M1 — Godot vertical slice (3–5 months).** Port core to typed GDScript. One battle:
 8v8, the 4 families, shields, one hill, routs working. UI: **hit-chance tooltip with
@@ -819,6 +825,32 @@ timelines are how side projects die — hitting month 6 still in M1 is *on pace*
 ---
 
 ## 10. Changelog
+
+**v0.21 (2026-06-11)** — **stepwise difficulty ladder + full-folder problem scan**
+(user direction). (1) **The ladder is now real steps**, batch-retuned and verified at
+2000 seeds each: 劫镖 ★ 63% · 守桥 ★★ 57% · 对决 ★★★ 48% · 攻寨 ★★★★ 41% (was
+58/57/57/46 with three scenarios tied). 劫镖: 坐山雕 no longer appears at his own
+ambush — 蛇矛子 leads it with two 喽啰 added (4v7 of lighter troops; the chief stays
+on his summit for the finale). 对决: a second road-pacing 跟班 (llb) joins the 三煞
+→ 3v5. 攻寨: two garrisoned reinforcements inside the walls (喽啰 at the west gate,
+二麻子 on the summit). 守桥: an uncommitted, overtuned two-column-river rework
+(95% player) was stashed; the documented 57.5% version stands. Ruleset freeze held —
+every change is scenario data. (2) **Scan fixes** (35-finding multi-agent audit,
+adversarially verified): 围攻 no longer applies to friendly fire in either engine
+(§3.6 was right, both implementations were wrong — reachable via 大斧 sweep);
+web: 举盾/枪林/换械 now refresh the cached movement range (AP could go negative);
+victory text no longer assumes a 4-man roster; both loaders validate scenario unit
+ids; off-map road hexes no longer crash the web renderer; head-crit log/hover show
+real per-weapon thresholds; spearwall messages use the weapon's own stance label
+(枪阵 vs 枪林); sim runs on Python 3.9 again (`from __future__ import annotations`);
+dead code removed (flat_scenario, unused imports, duplicate flee branch).
+(3) **The standalone is now a build artifact**: tools/build_standalone.py regenerates
+shattered_jade_battle.html from index.html + game.js + scenarios/*.json, and a parity
+test fails the suite if it drifts — the third hand-synced rule copy is gone. pytest.ini
+anchors rootdir; scenario JSONs normalized to one schema (all terrain layers explicit,
+no elev-layer overlaps); structural tests now glob every scenario file. Doc honesty
+pass: M0 deferrals recorded (vision, scatter, ordered Withdraw — §3.1/§3.8/§7.1
+amended to match code), header version now tracks the changelog. 76 tests green.
 
 **v0.20 (2026-06-11)** — **two new scenarios** (user direction: more difficulty
 variety, exercise more of the mechanism space), both batch-tuned into the 50–60%

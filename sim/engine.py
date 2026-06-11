@@ -4,7 +4,7 @@ run_battle() is the headless entry point: controllers issue commands per unit
 turn; the engine owns upkeep, rout movement, and termination."""
 from .hexmath import neighbors
 from .pathfind import dijkstra, path_to
-from .commands import EndTurn, exec_move, resolve
+from .commands import exec_move
 from .rules import check_end, kill
 
 # Harness extension: the prototype has no round cap or draw concept; the cap

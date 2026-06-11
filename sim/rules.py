@@ -68,7 +68,8 @@ def hit_breakdown(state, atk, dfn, opts=None):
     if atk.wpn["kind"] == "melee" and hex_dist(atk, dfn) == 2:
         parts.append(("long_thrust", -15))  # BB: 2-hex attacks −15 unless mastered
 
-    if atk.wpn["kind"] == "melee":
+    # 围攻 never applies to friendly fire (DESIGN §3.6 — BB's oversight, fixed)
+    if atk.wpn["kind"] == "melee" and atk.side != dfn.side:
         adj_atk = sum(1 for u in adjacent_units(state, dfn.q, dfn.r)
                       if u.side == atk.side and u.wpn["kind"] == "melee"
                       and u.morale != "Fleeing")

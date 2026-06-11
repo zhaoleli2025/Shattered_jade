@@ -2,6 +2,9 @@
 
 Scenarios are JSON files in scenarios/ — the single source of truth shared
 with the web prototype (which fetches the same files)."""
+from __future__ import annotations
+
+import copy
 import json
 import os
 from dataclasses import dataclass, field
@@ -141,6 +144,9 @@ def load_scenario(scen_id, seed=0):
     with open(path, encoding="utf-8") as f:
         spec = json.load(f)
     tpl_by_id = {t["id"]: t for t in data.ROSTER}
+    unknown = [su["id"] for su in spec["units"] if su["id"] not in tpl_by_id]
+    if unknown:
+        raise ValueError(f"scenario '{scen_id}': unknown unit ids {unknown}")
     units = []
     for su in spec["units"]:
         u = make_unit(tpl_by_id[su["id"]], *su["spawn"])
@@ -162,8 +168,8 @@ def make_unit(tpl, q, r):
         breath_max=tpl["breath_base"] - body["weight"] - helm["weight"],
         armor_b=body["protect"], armor_h=helm["protect"],
         armor_name=body["label"], helm_name=helm["label"],
-        wpn=dict(data.WEAPONS[tpl["wpn"]]),
-        wpn2=dict(data.WEAPONS[tpl["wpn2"]]) if tpl.get("wpn2") else None,
+        wpn=copy.deepcopy(data.WEAPONS[tpl["wpn"]]),
+        wpn2=copy.deepcopy(data.WEAPONS[tpl["wpn2"]]) if tpl.get("wpn2") else None,
         leader=tpl.get("leader", False),
     )
     u.hp, u.breath = u.hp_max, u.breath_max
@@ -175,17 +181,3 @@ def make_unit(tpl, q, r):
 def ambush_scenario(seed=0):
     """The canonical 劫镖 fixture — identical to the web prototype's battle."""
     return load_scenario("jiebiao", seed)
-
-
-def flat_scenario(roster, seed=0):
-    """Featureless map for weapon-matchup batches; roster = templates WITH a
-    'spawn' key. NOTE: run matchups in both orientations and average — column
-    mirroring is not an exact hex isometry (see run_batch.py)."""
-    tiles = {}
-    for r in range(data.ROWS):
-        for col in range(data.COLS):
-            q = col - (r >> 1)
-            tiles[(q, r)] = Tile(q, r)
-    return BattleState(tiles=tiles,
-                       units=[make_unit(t, *t["spawn"]) for t in roster],
-                       rng=Streams(seed))

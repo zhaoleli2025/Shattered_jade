@@ -139,4 +139,4 @@ ROSTER = [
          wpn="jiuhuandao", wpn2=None, leader=True),
 ]
 
-COLS, ROWS = 13, 9  # defaults for flat_scenario; real maps come from scenario JSON
+COLS, ROWS = 13, 9  # BattleState defaults; real maps come from scenario JSON

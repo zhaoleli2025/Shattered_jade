@@ -12,6 +12,11 @@ def S(seed=3):
 
 def move_to(state, uid, q, r):
     u = state.by_id(uid)
+    if u is None:  # not fielded by this scenario — summon from the roster
+        from sim.data import ROSTER
+        from sim.state import make_unit
+        u = make_unit(next(t for t in ROSTER if t["id"] == uid), q, r)
+        state.units.append(u)
     u.q, u.r = q, r
     return u
 

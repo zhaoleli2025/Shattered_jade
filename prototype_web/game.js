@@ -1,4 +1,4 @@
-/* 血与银 · battle prototype — implements DESIGN.md §3 (M0/M1 staged ruleset):
+/* 碎玉 Shattered Jade · battle prototype — implements DESIGN.md §3 (M0/M1 staged ruleset):
    d100 under-chance (skill − defense + accuracy + height + surround, clamp 5–95,
    3-state morale multiplier), two-layer armor (head/body) with 25% head-hit crits,
    AP + Breath, initiative = base − breath spent, ZoC free strikes (hit cancels move),
@@ -71,13 +71,14 @@ function buildMap() {
 }
 
 /* ---------------- units ---------------- */
-let UID = 0;
+/* unit.id is the template's string id; boot() rejects scenarios that field
+   the same template twice (battleStats/DOM/event keys all assume unique ids) */
 function mkUnit(t, q, r) {
-  const u = Object.assign({
-    id: ++UID, q, r, hp: t.hpMax,
+  const u = Object.assign(JSON.parse(JSON.stringify(t)), {
+    q, r, hp: t.hpMax,
     morale: "Steady", fledRounds: 0, bleed: 0, alive: true,
     ap: 0, attacksLeftHint: 0,
-  }, JSON.parse(JSON.stringify(t)));
+  });
   const body = ARMOR[u.armor], helm = ARMOR[u.helmet];
   u.breathMax = u.breathBase - body.weight - helm.weight; // armor weight taxes Breath
   u.breath = u.breathMax;
@@ -225,7 +226,8 @@ function hitBreakdown(atk, def, opts = {}) {
   }
 
   let surround = 0;
-  if (atk.wpn.kind === "melee") {
+  // 围攻 never applies to friendly fire (DESIGN §3.6 — BB's oversight, fixed)
+  if (atk.wpn.kind === "melee" && atk.side !== def.side) {
     const adjAtk = neighborsOf(def).map(k => at(tiles.get(k).q, tiles.get(k).r))
       .filter(u => u && u.side === atk.side && u.wpn.kind === "melee" && u.morale !== "Fleeing").length;
     surround = Math.max(0, adjAtk - 1) * 5;
@@ -289,8 +291,9 @@ function applyHit(atk, def, isFree, opts = {}) {
   def.breath = Math.max(0, def.breath - (atk.wpn.breathDrain || 5));
   if (atk.wpn.bleed && hpDmg >= 6 && def.alive) def.bleed = 2;
 
+  const headCap = 25 + (atk.wpn.headBonus || 0);
   log(`${tag}${atk.name} 攻 ${def.name}：${bd.chance}% — d100=${roll} → 命中` +
-      `${head ? `；部位 d100=${headRoll}≤25 → <b>爆头 ×${mult}</b>` : `（部位 d100=${headRoll}→身）`}` +
+      `${head ? (opts.forceHead ? `；必中头部 → <b>爆头 ×${mult}</b>` : `；部位 d100=${headRoll}≤${headCap} → <b>爆头 ×${mult}</b>`) : `（部位 d100=${headRoll}→身）`}` +
       `；伤 ${dmg} → 甲−${armorDmg}，血−${hpDmg}${def.bleed && atk.wpn.bleed && hpDmg >= 6 ? "，流血" : ""}`, cls);
   float(def, hpDmg > 0 ? "−" + hpDmg : "⛨−" + armorDmg, hpDmg > 0 ? "#a02818" : "#6f6450");
   if (battleStats[atk.id]) battleStats[atk.id].dmg += armorDmg + hpDmg;
@@ -392,14 +395,15 @@ async function execMove(u, path, totalCost) {
     const walls = neighborsOf({ q: next.q, r: next.r })
       .map(k => at(tiles.get(k).q, tiles.get(k).r))
       .filter(e => e && e.side !== u.side && e.spearwall && e.alive && e.morale !== "Fleeing" && !wallStruck.has(e.id));
-    let halted = false;
+    let halted = false, wallTag = "枪林";
     for (const e of walls) {
       wallStruck.add(e.id);
-      if (applyHit(e, u, true, { halfDmg: true, tag: "枪林" })) halted = true;
+      const tag = e.wpn.special && e.wpn.special.type === "spearwall" ? e.wpn.special.label : "枪林";
+      if (applyHit(e, u, true, { halfDmg: true, tag })) { halted = true; wallTag = tag; }
       if (!u.alive) return;
     }
     if (halted) {
-      log(`${u.name} 撞上枪林，被逼停在枪下。`, "sys");
+      log(`${u.name} 撞上${wallTag}，被逼停在枪下。`, "sys");
       renderUnits(); return;
     }
     u.q = next.q; u.r = next.r;
@@ -446,7 +450,6 @@ async function nextTurn() {
       log(`${u.name} 缓过神来，止住了逃势（动摇）。`, "sys");
     } else {
       busy = true; await fleeMove(u); busy = false;
-      if (u.alive) { nextTurn(); return; }
       nextTurn(); return;
     }
   }
@@ -526,7 +529,10 @@ function uiSwitchWeapon() {
   const u = active();
   if (busy || gameOver || !u || u.side !== "player" || u.morale === "Fleeing") return;
   selectedSkill = "attack";
-  if (switchWeapon(u)) { renderUnits(); renderCard(); }
+  if (switchWeapon(u)) {
+    moveInfo = dijkstra(u, u.ap, u.breath); // AP spent — refresh reachability
+    renderUnits(); renderCard();
+  }
 }
 
 function uiSelectSkill(kind) {
@@ -544,15 +550,19 @@ function uiSpearwall() {
   if (!sp || sp.type !== "spearwall" || u.spearwall || u.ap < sp.ap || u.breath < sp.br) return;
   u.ap -= sp.ap; u.breath -= sp.br;
   u.spearwall = true;
-  log(`${u.name} 立定<b>枪林</b>——逼近者吃枪（半伤，刺中即停），至其下回合。`, "b");
-  float(u, "枪林", "#24506e");
+  log(`${u.name} 立定<b>${sp.label}</b>——逼近者吃枪（半伤，刺中即停），至其下回合。`, "b");
+  float(u, sp.label, "#24506e");
+  moveInfo = dijkstra(u, u.ap, u.breath); // AP/Breath spent — refresh reachability
   renderUnits(); renderCard();
 }
 
 function uiRaiseShield() {
   const u = active();
   if (busy || gameOver || !u || u.side !== "player" || u.morale === "Fleeing") return;
-  if (raiseShield(u)) { renderUnits(); renderCard(); }
+  if (raiseShield(u)) {
+    moveInfo = dijkstra(u, u.ap, u.breath); // AP/Breath spent — refresh reachability
+    renderUnits(); renderCard();
+  }
 }
 
 const canSpecial = (u) => {
@@ -696,8 +706,10 @@ function checkEnd() {
     gameOver = true;
     const ov = document.getElementById("overlay");
     document.getElementById("ovtitle").textContent = e === 0 ? "胜" : "败";
+    const dead = units.filter(x => x.side === "player" && !x.alive && !x.escaped).length;
+    const fled = units.filter(x => x.side === "player" && x.escaped).length;
     document.getElementById("ovtext").textContent = e === 0
-      ? `山贼或死或逃。${4 - p > 0 ? `镖局折了 ${4 - p} 人——他们不会回来了。` : "全员生还，今夜有酒。"}`
+      ? `山贼或死或逃。${dead > 0 ? `镖局折了 ${dead} 人——他们不会回来了。` : "全员生还，今夜有酒。"}${fled > 0 ? `（${fled} 人溃走）` : ""}`
       : "镖旗倒在山道上。镖局还在，再招人手,再来。";
     document.getElementById("ovstats").innerHTML = summaryHTML();
     ov.style.display = "flex";
@@ -763,9 +775,10 @@ function buildBoard() {
     }
   }
   // paint the road as a worn track through the hex centers
-  if (ROAD_PATH.length >= 2) {
+  const roadOnMap = ROAD_PATH.filter(k => tiles.has(k)); // tolerate off-map road hexes (sim parity)
+  if (roadOnMap.length >= 2) {
   const roadLine = document.createElementNS("http://www.w3.org/2000/svg", "polyline");
-  roadLine.setAttribute("points", ROAD_PATH.map(k => {
+  roadLine.setAttribute("points", roadOnMap.map(k => {
     const t = tiles.get(k); const p = hexToPix(t.q, t.r);
     return p.x.toFixed(1) + "," + p.y.toFixed(1);
   }).join(" "));
@@ -1055,7 +1068,10 @@ function renderHover(u) {
     html += `${v >= 0 ? "+" : "−"}${Math.abs(v)}  ${label}<br>`;
   }
   html += `<span class="pct">= ${bd.chance}%</span>（夹在 5–95 之间）<br>`;
-  html += `目标：血 ${u.hp} ｜ 甲 身${u.armorB} 头${u.armorH} ｜ 25% 爆头 ×1.5`;
+  const critTxt = opts.forceHead ? `必中头部 ×${act.wpn.chop ? 2.25 : 1.5}`
+    : act.wpn.noHead ? "不能爆头"
+    : `${25 + (act.wpn.headBonus || 0)}% 爆头 ×${act.wpn.chop ? 2.25 : 1.5}`;
+  html += `目标：血 ${u.hp} ｜ 甲 身${u.armorB} 头${u.armorH} ｜ ${critTxt}`;
   el.innerHTML = html;
 }
 
@@ -1174,7 +1190,11 @@ async function boot() {
   const tplById = {};
   for (const t of rosterTemplates()) tplById[t.id] = t;
   battleStats = {};
+  const seenIds = new Set();
   units = scenario.units.map(su => {
+    if (!tplById[su.id]) throw new Error(`战役 ${scenId}：未知单位 "${su.id}"`);
+    if (seenIds.has(su.id)) throw new Error(`战役 ${scenId}：单位 "${su.id}" 重复上场（id 必须唯一）`);
+    seenIds.add(su.id);
     const un = mkUnit(tplById[su.id], su.spawn[0], su.spawn[1]);
     un.garrison = su.garrison ?? null; // AI holds within this radius of home
     un.home = { q: su.spawn[0], r: su.spawn[1] };

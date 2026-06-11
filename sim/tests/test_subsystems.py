@@ -33,6 +33,11 @@ def S(seed=0):
 
 def move_to(s, uid, q, r):
     u = s.by_id(uid)
+    if u is None:  # not fielded by this scenario — summon from the roster
+        from sim.data import ROSTER
+        from sim.state import make_unit
+        u = make_unit(next(t for t in ROSTER if t["id"] == uid), q, r)
+        s.units.append(u)
     u.q, u.r = q, r
     return u
 
@@ -119,8 +124,9 @@ def test_flee_reaches_edge_and_escapes():
 
 def test_all_escaped_side_loses():
     s = S()
-    for uid in ("erma", "xiaohu", "yemao", "diao"):
-        s.by_id(uid).alive = False
+    for other in s.alive_units("enemy"):
+        if other.uid != "duyan":
+            other.alive = False
     u = move_to(s, "duyan", 9, 4)
     u.morale = "Fleeing"
     u.ap = 9

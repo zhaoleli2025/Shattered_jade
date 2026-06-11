@@ -1,13 +1,8 @@
 """AI-vs-AI batch runner — M0's balance instrument.
 
-Usage:  python3 -m sim.run_batch [N] [scenario_id]      (from game01_demo/)
-Runs N seeded battles of scenarios/<scenario_id>.json (default: jiebiao)
-and prints win rates, casualties, weapon output.
-
-NOTE for flat-map matchup batches: column-mirroring is not an exact isometry of
-the offset hex grid, and first-best tie-breaks iterate east-first, so a single
-orientation carries a spawn-side bias (~2:1 observed). Always run matchups in
-BOTH orientations and average, or mirror through the map center in cube coords.
+Usage:  python3 -m sim.run_batch [N] [scenario_id]      (from game01_demo/;
+requires Python 3.10+). Runs N seeded battles of scenarios/<scenario_id>.json
+(default: jiebiao) and prints win rates, casualties, weapon output.
 """
 import collections
 import sys

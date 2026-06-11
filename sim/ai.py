@@ -3,7 +3,7 @@
 Deterministic (no temperature yet); any future randomness must use the "ai"
 RNG stream so it never perturbs combat rolls."""
 from .hexmath import hex_dist, neighbors
-from .pathfind import dijkstra, path_to
+from .pathfind import dijkstra
 from .commands import (SWITCH_AP, Stance, Strike, Swap, can_attack, can_special,
                        resolve, targets_of)
 from .rules import hit_breakdown
@@ -65,7 +65,7 @@ def ai_turn(state, u):
                 resolve(state, u, Swap())
                 continue
             if dist < 3 and u.ap >= 2:  # rule: archers keep distance
-                costs, _brc, prev = dijkstra(state, u, u.ap, u.breath)
+                costs, _brc, _prev = dijkstra(state, u, u.ap, u.breath)
                 best, best_score = None, -(1 << 30)
                 for k in costs:
                     if not in_bounds(u, k):
@@ -81,7 +81,7 @@ def ai_turn(state, u):
             # rule: out of bow range entirely → close in (fixes archer-stalemate draws)
             rng_max = u.wpn["range"] + state.tiles[u.pos()].elev
             if dist > rng_max and u.ap >= 2 and u.breath >= 1:
-                costs, _brc, prev = dijkstra(state, u, u.ap, u.breath)
+                costs, _brc, _prev = dijkstra(state, u, u.ap, u.breath)
                 best, best_score = None, 1 << 30
                 for k, c in costs.items():
                     if not in_bounds(u, k):
@@ -114,7 +114,7 @@ def ai_turn(state, u):
         # melee: advance toward nearest foe, prefer high ground
         if u.ap < 2 or u.breath < 1:
             return
-        costs, _brc, prev = dijkstra(state, u, u.ap, u.breath)
+        costs, _brc, _prev = dijkstra(state, u, u.ap, u.breath)
         best, best_score = None, 1 << 30
         for k, c in costs.items():
             if not in_bounds(u, k):

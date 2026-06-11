@@ -30,7 +30,10 @@ def test_js_round_half_away_from_zero():
 
 
 def test_scenarios_build_valid_maps():
-    for scen_id in ("jiebiao", "gongzhai", "shouqiao", "duijue"):
+    # every shipped scenario is validated — new JSONs are picked up automatically
+    scen_ids = sorted(n[:-5] for n in os.listdir(SCENARIO_DIR) if n.endswith(".json"))
+    assert len(scen_ids) >= 4
+    for scen_id in scen_ids:
         with open(os.path.join(SCENARIO_DIR, scen_id + ".json"), encoding="utf-8") as f:
             spec = json.load(f)
         s = load_scenario(scen_id)
