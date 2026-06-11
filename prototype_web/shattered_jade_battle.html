@@ -114,6 +114,13 @@
   }
   #overlay h2 { font-size: 42px; margin: 0; letter-spacing: 8px; }
   #overlay p { max-width: 460px; line-height: 1.7; }
+  #ovstats table { border-collapse: collapse; margin: 0 auto; font-size: 13.5px;
+                   font-family: "Noto Sans SC", sans-serif; }
+  #ovstats td { padding: 3px 14px; border-bottom: 1px solid rgba(236,227,205,.18); }
+  #ovstats tr.hd td { color: #e2b53e; font-weight: bold; padding-top: 10px; }
+  #ovstats td.bad { color: #e08a7a; }
+  #ovstats td.ok { color: #a9c693; }
+  #ovstats .rds { margin-top: 12px; font-size: 12.5px; color: #c9bda0; }
 </style>
 </head>
 <body>
@@ -143,10 +150,11 @@
 <div id="overlay">
   <h2 id="ovtitle"></h2>
   <p id="ovtext"></p>
+  <div id="ovstats"></div>
   <button onclick="location.reload()">再战一场</button>
 </div>
 <script>
-const EMBEDDED_SCENARIOS = {"jiebiao": {"id": "jiebiao", "name": "劫镖 · 山道伏击", "intro": ["劫镖！镖车困在官道上——坐山雕的人马从山岭、竹林、大路三面围来。喊镖号没人应。", "规则：一切骰子公开。命中 = 武艺 − 招架 + 准头 + 高地 + 围攻，夹在 5–95。", "官道（淡褐路面）上行走气力减半——镖局沿着自己的路打，最有底气。"], "map": {"cols": 13, "rows": 9, "road": [[-2, 4], [-1, 4], [0, 4], [1, 4], [2, 4], [3, 4], [3, 5], [4, 5], [4, 6], [5, 6], [6, 6], [7, 6], [8, 6], [9, 5], [9, 4], [10, 4]], "cart": [1, 4], "forest": [[3, 1], [4, 1], [3, 2], [2, 6], [3, 6], [3, 7], [9, 0], [10, 0]], "elev1": [[7, 3], [8, 3], [9, 3], [6, 4], [7, 4], [8, 4], [7, 5], [8, 5], [6, 5]], "elev2": [[7, 4], [8, 4]]}, "units": [{"id": "wang", "spawn": [1, 3]}, {"id": "liu", "spawn": [2, 4]}, {"id": "shi", "spawn": [1, 5]}, {"id": "yan", "spawn": [0, 4]}, {"id": "duyan", "spawn": [5, 6]}, {"id": "erma", "spawn": [4, 2]}, {"id": "xiaohu", "spawn": [6, 5]}, {"id": "yemao", "spawn": [7, 4]}, {"id": "diao", "spawn": [8, 6]}]}, "gongzhai": {"id": "gongzhai", "name": "攻寨 · 强袭山寨", "intro": ["攻寨！坐山雕的山寨盘踞峰顶——山分三层，每层仰攻 −10% 命中、爬坡费力。", "寨墙合围如村落，只有两门：正门在西坡（蛇矛子把守），后门在南坡。", "贼弓手居峰顶，箭及十格。要么夺门强进，要么诱他们下山。"], "map": {"cols": 13, "rows": 9, "road": [[-2, 4], [-1, 4], [0, 4], [1, 4], [2, 4], [2, 3], [3, 3]], "cart": null, "forest": [[2, 1], [3, 1], [0, 6], [1, 6], [0, 7]], "elev1": [[5, 1], [6, 1], [7, 1], [8, 1], [9, 1], [5, 2], [6, 2], [10, 2], [4, 3], [5, 3], [10, 3], [4, 4], [9, 4], [4, 5], [8, 5], [4, 6], [5, 6], [6, 6], [7, 6]], "elev2": [[6, 3], [6, 4], [7, 4], [6, 5], [7, 2], [8, 2], [9, 2], [9, 3], [8, 4], [7, 5], [5, 4], [5, 5]], "elev3": [[7, 3], [8, 3]], "wall": [[7, 2], [8, 2], [9, 2], [9, 3], [8, 4], [7, 5], [5, 4], [5, 5]]}, "units": [{"id": "chen", "spawn": [1, 4]}, {"id": "he", "spawn": [1, 3]}, {"id": "lu", "spawn": [0, 4]}, {"id": "shi", "spawn": [1, 5]}, {"id": "shemao", "spawn": [6, 3]}, {"id": "xiaohu", "spawn": [6, 4]}, {"id": "duyan", "spawn": [6, 5]}, {"id": "yemao", "spawn": [8, 3]}, {"id": "diao", "spawn": [7, 3]}]}};
+const EMBEDDED_SCENARIOS = {"jiebiao": {"id": "jiebiao", "name": "劫镖 · 山道伏击", "intro": ["劫镖！镖车困在官道上——坐山雕的人马从山岭、竹林、大路三面围来。喊镖号没人应。", "规则：一切骰子公开。命中 = 武艺 − 招架 + 准头 + 高地 + 围攻，夹在 5–95。", "官道（淡褐路面）上行走气力减半——镖局沿着自己的路打，最有底气。"], "map": {"cols": 13, "rows": 9, "road": [[-2, 4], [-1, 4], [0, 4], [1, 4], [2, 4], [3, 4], [3, 5], [4, 5], [4, 6], [5, 6], [6, 6], [7, 6], [8, 6], [9, 5], [9, 4], [10, 4]], "cart": [1, 4], "forest": [[3, 1], [4, 1], [3, 2], [2, 6], [3, 6], [3, 7], [9, 0], [10, 0]], "elev1": [[7, 3], [8, 3], [9, 3], [6, 4], [7, 4], [8, 4], [7, 5], [8, 5], [6, 5]], "elev2": [[7, 4], [8, 4]]}, "units": [{"id": "wang", "spawn": [1, 3]}, {"id": "liu", "spawn": [2, 4]}, {"id": "shi", "spawn": [1, 5]}, {"id": "yan", "spawn": [0, 4]}, {"id": "duyan", "spawn": [5, 6]}, {"id": "erma", "spawn": [4, 2]}, {"id": "xiaohu", "spawn": [6, 5]}, {"id": "yemao", "spawn": [7, 4]}, {"id": "diao", "spawn": [8, 6]}]}, "gongzhai": {"id": "gongzhai", "name": "攻寨 · 强袭山寨", "intro": ["攻寨！坐山雕独踞峰顶——山分三层，每层仰攻 −10% 命中，爬坡费力。", "寨墙合围如村落：正门在西坡（蛇矛子把守，门面两格），后门在南坡。守军不轻出。", "五人攻寨：弓弩压制，短矛结阵夺门，锤鞭破内。"], "map": {"cols": 13, "rows": 9, "road": [[-2, 4], [-1, 4], [0, 4], [1, 4], [2, 4], [2, 3], [3, 3]], "cart": null, "forest": [[2, 1], [3, 1], [0, 6], [1, 6], [0, 7]], "elev1": [[5, 1], [6, 1], [7, 1], [8, 1], [9, 1], [5, 2], [6, 2], [10, 2], [4, 3], [5, 3], [10, 3], [4, 4], [9, 4], [4, 5], [8, 5], [4, 6], [5, 6], [6, 6], [7, 6]], "elev2": [[6, 3], [6, 4], [7, 4], [6, 5], [7, 2], [8, 2], [9, 2], [9, 3], [8, 4], [7, 5], [5, 4], [5, 5]], "elev3": [[7, 3], [8, 3]], "wall": [[7, 2], [8, 2], [9, 2], [9, 3], [8, 4], [7, 5], [5, 5]]}, "units": [{"id": "chen", "spawn": [1, 4]}, {"id": "he", "spawn": [1, 3]}, {"id": "lu", "spawn": [0, 4]}, {"id": "shi", "spawn": [1, 5]}, {"id": "yan", "spawn": [0, 3]}, {"id": "shemao", "spawn": [6, 3], "garrison": 1}, {"id": "xiaohu", "spawn": [6, 4], "garrison": 2}, {"id": "duyan", "spawn": [6, 5], "garrison": 1}, {"id": "yemao", "spawn": [7, 4], "garrison": 2}, {"id": "diao", "spawn": [7, 3], "garrison": 2}]}};
 /* 血与银 · battle prototype — implements DESIGN.md §3 (M0/M1 staged ruleset):
    d100 under-chance (skill − defense + accuracy + height + surround, clamp 5–95,
    3-state morale multiplier), two-layer armor (head/body) with 25% head-hit crits,
@@ -291,6 +299,7 @@ function rosterTemplates() {
 let units = [], round = 0, queue = [], qIdx = -1;
 let busy = false, gameOver = false;
 let moveInfo = null; // {costs:Map, prev:Map}
+let battleStats = {}; // per-unit damage/kills for the end-of-battle summary
 let selectedSkill = "attack"; // BB-style skill bar: "attack" | "special"; ground click always moves
 let logEl, boardEl, unitLayer, fxLayer, highlightLayer;
 let hoverPathEl = null;
@@ -424,6 +433,7 @@ function applyHit(atk, def, isFree, opts = {}) {
       `${head ? `；部位 d100=${headRoll}≤25 → <b>爆头 ×${mult}</b>` : `（部位 d100=${headRoll}→身）`}` +
       `；伤 ${dmg} → 甲−${armorDmg}，血−${hpDmg}${def.bleed && atk.wpn.bleed && hpDmg >= 6 ? "，流血" : ""}`, cls);
   float(def, hpDmg > 0 ? "−" + hpDmg : "⛨−" + armorDmg, hpDmg > 0 ? "#a02818" : "#6f6450");
+  if (battleStats[atk.id]) battleStats[atk.id].dmg += armorDmg + hpDmg;
 
   if (def.hp <= 0) { kill(def, atk, opts.fearMod || 0); }
   else if (hpDmg >= 15) { moraleCheck(def, -10, "重创"); }
@@ -432,6 +442,7 @@ function applyHit(atk, def, isFree, opts = {}) {
 
 function kill(u, killer, fearMod = 0) {
   u.alive = false;
+  if (killer && battleStats[killer.id]) battleStats[killer.id].kills++;
   log(`☠ <b>${u.name}</b> 倒下了${killer ? "（" + killer.name + " 所杀）" : ""}${fearMod ? " —— 杀法骇人，众皆胆寒" : ""}。`, "sys");
   // negative checks ripple through the victim's side, scaled by distance
   for (const ally of alive(u.side)) {
@@ -606,6 +617,7 @@ async function fleeMove(u) {
   const col = u.q + (u.r >> 1);
   if (u.alive && (col === edgeCol)) {
     u.alive = false;
+    u.escaped = true;
     log(`${u.name} 逃离了战场。`, "sys");
     renderUnits(); checkEnd();
   }
@@ -708,6 +720,8 @@ async function doAttack(u, t, useSpecial) {
 }
 
 /* ---------------- enemy AI (v0: greedy + 3 hand rules) ---------------- */
+const inBounds = (u, t) => u.garrison == null || hexDist(t, u.home) <= u.garrison;
+
 async function aiTurn(u) {
   await sleep(250);
   for (let safety = 0; safety < 8 && u.alive && !gameOver; safety++) {
@@ -750,6 +764,7 @@ async function aiTurn(u) {
         let best = null, bestScore = -Infinity;
         for (const [k] of info.costs) {
           const t = tiles.get(k);
+          if (!inBounds(u, t)) continue;
           const dmin = Math.min(...foes.map(f => hexDist(t, f)));
           const score = Math.min(dmin, 6) + t.elev * 0.5;
           if (score > bestScore) { bestScore = score; best = k; }
@@ -766,6 +781,7 @@ async function aiTurn(u) {
         let best = null, bestScore = Infinity;
         for (const [k, c] of info.costs) {
           const t = tiles.get(k);
+          if (!inBounds(u, t)) continue;
           const dmin = Math.min(...foes.map(f => hexDist(t, f)));
           const score = dmin * 10 - t.elev * 3 + c * 0.1;
           if (score < bestScore) { bestScore = score; best = k; }
@@ -801,6 +817,7 @@ async function aiTurn(u) {
     let best = null, bestScore = Infinity;
     for (const [k, c] of info.costs) {
       const t = tiles.get(k);
+      if (!inBounds(u, t)) continue;
       const dmin = Math.min(...foes.map(f => hexDist(t, f)));
       const score = dmin * 10 - t.elev * 3 + c * 0.1;
       if (score < bestScore) { bestScore = score; best = k; }
@@ -822,8 +839,23 @@ function checkEnd() {
     document.getElementById("ovtext").textContent = e === 0
       ? `山贼或死或逃。${4 - p > 0 ? `镖局折了 ${4 - p} 人——他们不会回来了。` : "全员生还，今夜有酒。"}`
       : "镖旗倒在山道上。镖局还在，再招人手,再来。";
+    document.getElementById("ovstats").innerHTML = summaryHTML();
     ov.style.display = "flex";
   }
+}
+
+function summaryHTML() {
+  const fate = (u) => u.alive ? "存活" : u.escaped ? "溃走" : "阵亡";
+  const cls = (u) => u.alive ? "ok" : u.escaped ? "" : "bad";
+  const row = (u) =>
+    `<tr><td>${u.name}</td><td>${u.wpn.label}</td><td>${battleStats[u.id].dmg}</td>` +
+    `<td>${battleStats[u.id].kills}</td><td class="${cls(u)}">${fate(u)}</td></tr>`;
+  const side = (s, label) =>
+    `<tr class="hd"><td colspan="5">${label}</td></tr>` +
+    units.filter(u => u.side === s).map(row).join("");
+  return `<table><tr class="hd"><td>名号</td><td>兵器</td><td>伤害</td><td>击杀</td><td>下场</td></tr>` +
+    side("player", "镖局") + side("enemy", "山贼") +
+    `</table><div class="rds">历时 ${round} 回合 · 骰子尽数公开于战斗记录</div>`;
 }
 
 /* ---------------- rendering ---------------- */
@@ -1280,7 +1312,14 @@ async function boot() {
   buildMap();
   const tplById = {};
   for (const t of rosterTemplates()) tplById[t.id] = t;
-  units = scenario.units.map(su => mkUnit(tplById[su.id], su.spawn[0], su.spawn[1]));
+  battleStats = {};
+  units = scenario.units.map(su => {
+    const un = mkUnit(tplById[su.id], su.spawn[0], su.spawn[1]);
+    un.garrison = su.garrison ?? null; // AI holds within this radius of home
+    un.home = { q: su.spawn[0], r: su.spawn[1] };
+    battleStats[un.id] = { dmg: 0, kills: 0 };
+    return un;
+  });
   buildBoard();
   for (const line of scenario.intro || []) log(line, "sys");
   startRound();

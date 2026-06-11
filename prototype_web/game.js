@@ -142,6 +142,7 @@ function rosterTemplates() {
 let units = [], round = 0, queue = [], qIdx = -1;
 let busy = false, gameOver = false;
 let moveInfo = null; // {costs:Map, prev:Map}
+let battleStats = {}; // per-unit damage/kills for the end-of-battle summary
 let selectedSkill = "attack"; // BB-style skill bar: "attack" | "special"; ground click always moves
 let logEl, boardEl, unitLayer, fxLayer, highlightLayer;
 let hoverPathEl = null;
@@ -275,6 +276,7 @@ function applyHit(atk, def, isFree, opts = {}) {
       `${head ? `；部位 d100=${headRoll}≤25 → <b>爆头 ×${mult}</b>` : `（部位 d100=${headRoll}→身）`}` +
       `；伤 ${dmg} → 甲−${armorDmg}，血−${hpDmg}${def.bleed && atk.wpn.bleed && hpDmg >= 6 ? "，流血" : ""}`, cls);
   float(def, hpDmg > 0 ? "−" + hpDmg : "⛨−" + armorDmg, hpDmg > 0 ? "#a02818" : "#6f6450");
+  if (battleStats[atk.id]) battleStats[atk.id].dmg += armorDmg + hpDmg;
 
   if (def.hp <= 0) { kill(def, atk, opts.fearMod || 0); }
   else if (hpDmg >= 15) { moraleCheck(def, -10, "重创"); }
@@ -283,6 +285,7 @@ function applyHit(atk, def, isFree, opts = {}) {
 
 function kill(u, killer, fearMod = 0) {
   u.alive = false;
+  if (killer && battleStats[killer.id]) battleStats[killer.id].kills++;
   log(`☠ <b>${u.name}</b> 倒下了${killer ? "（" + killer.name + " 所杀）" : ""}${fearMod ? " —— 杀法骇人，众皆胆寒" : ""}。`, "sys");
   // negative checks ripple through the victim's side, scaled by distance
   for (const ally of alive(u.side)) {
@@ -457,6 +460,7 @@ async function fleeMove(u) {
   const col = u.q + (u.r >> 1);
   if (u.alive && (col === edgeCol)) {
     u.alive = false;
+    u.escaped = true;
     log(`${u.name} 逃离了战场。`, "sys");
     renderUnits(); checkEnd();
   }
@@ -678,8 +682,23 @@ function checkEnd() {
     document.getElementById("ovtext").textContent = e === 0
       ? `山贼或死或逃。${4 - p > 0 ? `镖局折了 ${4 - p} 人——他们不会回来了。` : "全员生还，今夜有酒。"}`
       : "镖旗倒在山道上。镖局还在，再招人手,再来。";
+    document.getElementById("ovstats").innerHTML = summaryHTML();
     ov.style.display = "flex";
   }
+}
+
+function summaryHTML() {
+  const fate = (u) => u.alive ? "存活" : u.escaped ? "溃走" : "阵亡";
+  const cls = (u) => u.alive ? "ok" : u.escaped ? "" : "bad";
+  const row = (u) =>
+    `<tr><td>${u.name}</td><td>${u.wpn.label}</td><td>${battleStats[u.id].dmg}</td>` +
+    `<td>${battleStats[u.id].kills}</td><td class="${cls(u)}">${fate(u)}</td></tr>`;
+  const side = (s, label) =>
+    `<tr class="hd"><td colspan="5">${label}</td></tr>` +
+    units.filter(u => u.side === s).map(row).join("");
+  return `<table><tr class="hd"><td>名号</td><td>兵器</td><td>伤害</td><td>击杀</td><td>下场</td></tr>` +
+    side("player", "镖局") + side("enemy", "山贼") +
+    `</table><div class="rds">历时 ${round} 回合 · 骰子尽数公开于战斗记录</div>`;
 }
 
 /* ---------------- rendering ---------------- */
@@ -1137,10 +1156,12 @@ async function boot() {
   buildMap();
   const tplById = {};
   for (const t of rosterTemplates()) tplById[t.id] = t;
+  battleStats = {};
   units = scenario.units.map(su => {
     const un = mkUnit(tplById[su.id], su.spawn[0], su.spawn[1]);
     un.garrison = su.garrison ?? null; // AI holds within this radius of home
     un.home = { q: su.spawn[0], r: su.spawn[1] };
+    battleStats[un.id] = { dmg: 0, kills: 0 };
     return un;
   });
   buildBoard();

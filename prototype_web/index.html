@@ -114,6 +114,13 @@
   }
   #overlay h2 { font-size: 42px; margin: 0; letter-spacing: 8px; }
   #overlay p { max-width: 460px; line-height: 1.7; }
+  #ovstats table { border-collapse: collapse; margin: 0 auto; font-size: 13.5px;
+                   font-family: "Noto Sans SC", sans-serif; }
+  #ovstats td { padding: 3px 14px; border-bottom: 1px solid rgba(236,227,205,.18); }
+  #ovstats tr.hd td { color: #e2b53e; font-weight: bold; padding-top: 10px; }
+  #ovstats td.bad { color: #e08a7a; }
+  #ovstats td.ok { color: #a9c693; }
+  #ovstats .rds { margin-top: 12px; font-size: 12.5px; color: #c9bda0; }
 </style>
 </head>
 <body>
@@ -143,8 +150,9 @@
 <div id="overlay">
   <h2 id="ovtitle"></h2>
   <p id="ovtext"></p>
+  <div id="ovstats"></div>
   <button onclick="location.reload()">再战一场</button>
 </div>
-<script src="game.js?v=019"></script>
+<script src="game.js?v=020"></script>
 </body>
 </html>
