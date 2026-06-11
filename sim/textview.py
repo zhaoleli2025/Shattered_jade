@@ -14,7 +14,7 @@ def render(state):
                 mark += "!" if u.morale != "Steady" else ("*" if u.side == "player" else " ")
             else:
                 mark = {"forest": "竹 ", "hill": "丘 ", "road": "= ",
-                        "cart": "镖 ", "wall": "栅 ", "grass": ". "}[t.terrain]
+                        "cart": "镖 ", "wall": "栅 ", "water": "波 ", "grass": ". "}[t.terrain]
                 if t.elev == 2 and t.terrain == "hill":
                     mark = "岭 "
                 if t.elev == 3:

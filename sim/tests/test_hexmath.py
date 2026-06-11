@@ -30,7 +30,7 @@ def test_js_round_half_away_from_zero():
 
 
 def test_scenarios_build_valid_maps():
-    for scen_id in ("jiebiao", "gongzhai"):
+    for scen_id in ("jiebiao", "gongzhai", "shouqiao", "duijue"):
         with open(os.path.join(SCENARIO_DIR, scen_id + ".json"), encoding="utf-8") as f:
             spec = json.load(f)
         s = load_scenario(scen_id)
@@ -46,6 +46,39 @@ def test_scenarios_build_valid_maps():
         for k in spawns:
             assert k in s.tiles and not s.tiles[k].impassable
         assert len(s.units) == len(spec["units"])
+        for t in s.tiles.values():
+            if t.terrain in ("wall", "water", "cart"):
+                assert t.impassable
+
+
+def test_shouqiao_river_has_exactly_two_crossings():
+    """BFS from the west bank must reach the east bank only via bridge + ford."""
+    from collections import deque
+    from sim.hexmath import neighbors
+    s = load_scenario("shouqiao")
+    start = (0, 4)  # west bank
+    seen, frontier = {start}, deque([start])
+    while frontier:
+        cur = frontier.popleft()
+        for nk in neighbors(*cur):
+            t = s.tiles.get(nk)
+            if t and not t.impassable and nk not in seen:
+                seen.add(nk)
+                frontier.append(nk)
+    assert (10, 4) in seen  # east bank reachable at all
+    # removing the two crossings must split the map
+    blocked = dict(s.tiles)
+    for k in [(4, 4), (3, 7)]:
+        blocked[k] = type(s.tiles[k])(k[0], k[1], 0, "water", 2, 2, True)
+    seen2, frontier = {start}, deque([start])
+    while frontier:
+        cur = frontier.popleft()
+        for nk in neighbors(*cur):
+            t = blocked.get(nk)
+            if t and not t.impassable and nk not in seen2:
+                seen2.add(nk)
+                frontier.append(nk)
+    assert (10, 4) not in seen2  # without bridge and ford, no way across
 
 
 def test_jiebiao_map_details():

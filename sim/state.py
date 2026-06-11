@@ -107,6 +107,7 @@ def tiles_from_spec(m):
     elev2 = {tuple(k) for k in m.get("elev2") or []}
     elev3 = {tuple(k) for k in m.get("elev3") or []}
     wall = {tuple(k) for k in m.get("wall") or []}
+    water = {tuple(k) for k in m.get("water") or []}
     cart = tuple(m["cart"]) if m.get("cart") else None
     tiles = {}
     for r in range(m["rows"]):
@@ -127,6 +128,8 @@ def tiles_from_spec(m):
                 terrain, impassable = "cart", True
             if (q, r) in wall:  # 寨墙/栅栏 — nobody crosses, nobody stands here
                 terrain, impassable = "wall", True
+            if (q, r) in water:  # 河水 — same rule, different face
+                terrain, impassable = "water", True
             tiles[(q, r)] = Tile(q, r, elev, terrain,
                                  3 if terrain == "forest" else 2, br_cost, impassable)
     return tiles

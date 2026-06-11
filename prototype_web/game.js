@@ -49,6 +49,7 @@ function buildMap() {
   const elev2 = toKeys(m.elev2);
   const elev3 = toKeys(m.elev3);
   const wall = toKeys(m.wall);
+  const water = toKeys(m.water);
   const cartK = m.cart ? key(m.cart[0], m.cart[1]) : null;
   for (let r = 0; r < ROWS; r++) {
     for (let col = 0; col < COLS; col++) {
@@ -62,6 +63,7 @@ function buildMap() {
       if (road.has(k) && terrain === "grass") { terrain = "road"; brCost = 1; } // roads: half Breath
       if (k === cartK) { terrain = "cart"; impassable = true; }
       if (wall.has(k)) { terrain = "wall"; impassable = true; } // 寨墙：不可逾越
+      if (water.has(k)) { terrain = "water"; impassable = true; } // 河水：不可涉
       tiles.set(k, { q, r, elev, terrain, brCost, impassable,
         moveCost: terrain === "forest" ? 3 : 2 });
     }
@@ -134,6 +136,21 @@ function rosterTemplates() {
     E("shemao", "蛇矛子", "矛", { hpMax: 52, skill: 55, def: 6, shield: 0, resolve: 40,
       initBase: 96, breathBase: 89, armor: "pijia", helmet: "bumao",
       wpn: { kind: "melee", label: "长枪", hands: 2, reach: 2, acc: 20, dmin: 22, dmax: 32, armorEff: 0.9, pierce: 0.3, ap: 6, br: 15, special: { type: "spearwall", label: "枪林", ap: 3, br: 18 } } }),
+    E("lla", "喽啰·甲", "卒", { hpMax: 40, skill: 46, def: 3, shield: 0, resolve: 30,
+      initBase: 102, breathBase: 85, armor: "bujia", helmet: "none_h",
+      wpn: { kind: "melee", label: "短刀", hands: 1, acc: 0, dmin: 14, dmax: 22, armorEff: 0.8, pierce: 0.3, ap: 4, br: 10 } }),
+    E("llb", "喽啰·乙", "卒", { hpMax: 40, skill: 46, def: 3, shield: 0, resolve: 30,
+      initBase: 101, breathBase: 85, armor: "bujia", helmet: "none_h",
+      wpn: { kind: "melee", label: "短刀", hands: 1, acc: 0, dmin: 14, dmax: 22, armorEff: 0.8, pierce: 0.3, ap: 4, br: 10 } }),
+    E("llc", "喽啰·丙", "卒", { hpMax: 40, skill: 46, def: 3, shield: 0, resolve: 30,
+      initBase: 100, breathBase: 85, armor: "bujia", helmet: "none_h",
+      wpn: { kind: "melee", label: "短刀", hands: 1, acc: 0, dmin: 14, dmax: 22, armorEff: 0.8, pierce: 0.3, ap: 4, br: 10 } }),
+    E("lld", "喽啰·丁", "卒", { hpMax: 40, skill: 46, def: 3, shield: 0, resolve: 30,
+      initBase: 99, breathBase: 85, armor: "bujia", helmet: "none_h",
+      wpn: { kind: "melee", label: "短刀", hands: 1, acc: 0, dmin: 14, dmax: 22, armorEff: 0.8, pierce: 0.3, ap: 4, br: 10 } }),
+    E("guoshanfeng", "过山风", "首", { hpMax: 62, skill: 58, def: 9, shield: 15, resolve: 50,
+      initBase: 95, breathBase: 88, armor: "pijia", helmet: "pikui", leader: true,
+      wpn: { kind: "melee", label: "九环刀", hands: 1, acc: 10, dmin: 24, dmax: 34, armorEff: 1.0, pierce: 0.3, ap: 4, br: 12, bleed: true, special: { type: "decap", label: "斩首", ap: 5, br: 15, dmgMult: 1.3 } } }),
   ];
 }
 /* deployments come from the scenario file (scenarios/<id>.json) */
@@ -711,7 +728,7 @@ function hexPoints(cx, cy) {
   return pts.join(" ");
 }
 
-const TERRAIN_FILL = { grass: "#d8d2b0", forest: "#aab48c", hill: "#d9c79a", road: "#cdb488", cart: "#c2a878", wall: "#857258" };
+const TERRAIN_FILL = { grass: "#d8d2b0", forest: "#aab48c", hill: "#d9c79a", road: "#cdb488", cart: "#c2a878", wall: "#857258", water: "#a8bfc7" };
 
 function buildBoard() {
   boardEl.innerHTML = "";
@@ -733,7 +750,7 @@ function buildBoard() {
     p.addEventListener("mouseenter", () => onHexHover(key(t.q, t.r)));
     p.addEventListener("mouseleave", () => clearHexHover());
     tileLayer.appendChild(p);
-    if (t.terrain === "forest" || t.elev > 0 || t.terrain === "cart" || t.terrain === "wall") {
+    if (t.terrain === "forest" || t.elev > 0 || t.terrain === "cart" || t.terrain === "wall" || t.terrain === "water") {
       const tx = document.createElementNS("http://www.w3.org/2000/svg", "text");
       tx.setAttribute("x", x); tx.setAttribute("y", y + 5);
       tx.setAttribute("text-anchor", "middle");
@@ -741,7 +758,7 @@ function buildBoard() {
       tx.setAttribute("font-size", t.terrain === "cart" ? "19" : "13");
       if (t.terrain === "cart") tx.setAttribute("font-weight", "bold");
       tx.setAttribute("pointer-events", "none");
-      tx.textContent = t.terrain === "cart" ? "镖" : t.terrain === "wall" ? "栅" : t.terrain === "forest" ? "竹" : (t.elev === 3 ? "峰" : t.elev === 2 ? "岭" : "丘");
+      tx.textContent = t.terrain === "cart" ? "镖" : t.terrain === "wall" ? "栅" : t.terrain === "water" ? "波" : t.terrain === "forest" ? "竹" : (t.elev === 3 ? "峰" : t.elev === 2 ? "岭" : "丘");
       tileLayer.appendChild(tx);
     }
   }

@@ -127,8 +127,10 @@
 <header>
   <h1>碎玉 · 战斗原型</h1>
   <select id="scenpick">
-    <option value="jiebiao">劫镖 · 山道伏击</option>
-    <option value="gongzhai">攻寨 · 强袭山寨</option>
+    <option value="jiebiao">劫镖 · 山道伏击 ★</option>
+    <option value="shouqiao">守桥 · 断后之战 ★★</option>
+    <option value="duijue">对决 · 黑风三煞 ★★</option>
+    <option value="gongzhai">攻寨 · 强袭山寨 ★★★</option>
   </select>
   <span class="sub" id="subtitle"></span>
   <span class="spacer"></span>
@@ -154,7 +156,7 @@
   <button onclick="location.reload()">再战一场</button>
 </div>
 <script>
-const EMBEDDED_SCENARIOS = {"jiebiao": {"id": "jiebiao", "name": "劫镖 · 山道伏击", "intro": ["劫镖！镖车困在官道上——坐山雕的人马从山岭、竹林、大路三面围来。喊镖号没人应。", "规则：一切骰子公开。命中 = 武艺 − 招架 + 准头 + 高地 + 围攻，夹在 5–95。", "官道（淡褐路面）上行走气力减半——镖局沿着自己的路打，最有底气。"], "map": {"cols": 13, "rows": 9, "road": [[-2, 4], [-1, 4], [0, 4], [1, 4], [2, 4], [3, 4], [3, 5], [4, 5], [4, 6], [5, 6], [6, 6], [7, 6], [8, 6], [9, 5], [9, 4], [10, 4]], "cart": [1, 4], "forest": [[3, 1], [4, 1], [3, 2], [2, 6], [3, 6], [3, 7], [9, 0], [10, 0]], "elev1": [[7, 3], [8, 3], [9, 3], [6, 4], [7, 4], [8, 4], [7, 5], [8, 5], [6, 5]], "elev2": [[7, 4], [8, 4]]}, "units": [{"id": "wang", "spawn": [1, 3]}, {"id": "liu", "spawn": [2, 4]}, {"id": "shi", "spawn": [1, 5]}, {"id": "yan", "spawn": [0, 4]}, {"id": "duyan", "spawn": [5, 6]}, {"id": "erma", "spawn": [4, 2]}, {"id": "xiaohu", "spawn": [6, 5]}, {"id": "yemao", "spawn": [7, 4]}, {"id": "diao", "spawn": [8, 6]}]}, "gongzhai": {"id": "gongzhai", "name": "攻寨 · 强袭山寨", "intro": ["攻寨！坐山雕独踞峰顶——山分三层，每层仰攻 −10% 命中，爬坡费力。", "寨墙合围如村落：正门在西坡（蛇矛子把守，门面两格），后门在南坡。守军不轻出。", "五人攻寨：弓弩压制，短矛结阵夺门，锤鞭破内。"], "map": {"cols": 13, "rows": 9, "road": [[-2, 4], [-1, 4], [0, 4], [1, 4], [2, 4], [2, 3], [3, 3]], "cart": null, "forest": [[2, 1], [3, 1], [0, 6], [1, 6], [0, 7]], "elev1": [[5, 1], [6, 1], [7, 1], [8, 1], [9, 1], [5, 2], [6, 2], [10, 2], [4, 3], [5, 3], [10, 3], [4, 4], [9, 4], [4, 5], [8, 5], [4, 6], [5, 6], [6, 6], [7, 6]], "elev2": [[6, 3], [6, 4], [7, 4], [6, 5], [7, 2], [8, 2], [9, 2], [9, 3], [8, 4], [7, 5], [5, 4], [5, 5]], "elev3": [[7, 3], [8, 3]], "wall": [[7, 2], [8, 2], [9, 2], [9, 3], [8, 4], [7, 5], [5, 5]]}, "units": [{"id": "chen", "spawn": [1, 4]}, {"id": "he", "spawn": [1, 3]}, {"id": "lu", "spawn": [0, 4]}, {"id": "shi", "spawn": [1, 5]}, {"id": "yan", "spawn": [0, 3]}, {"id": "shemao", "spawn": [6, 3], "garrison": 1}, {"id": "xiaohu", "spawn": [6, 4], "garrison": 2}, {"id": "duyan", "spawn": [6, 5], "garrison": 1}, {"id": "yemao", "spawn": [7, 4], "garrison": 2}, {"id": "diao", "spawn": [7, 3], "garrison": 2}]}};
+const EMBEDDED_SCENARIOS = {"jiebiao": {"id": "jiebiao", "name": "劫镖 · 山道伏击", "intro": ["劫镖！镖车困在官道上——坐山雕的人马从山岭、竹林、大路三面围来。喊镖号没人应。", "规则：一切骰子公开。命中 = 武艺 − 招架 + 准头 + 高地 + 围攻，夹在 5–95。", "官道（淡褐路面）上行走气力减半——镖局沿着自己的路打，最有底气。"], "map": {"cols": 13, "rows": 9, "road": [[-2, 4], [-1, 4], [0, 4], [1, 4], [2, 4], [3, 4], [3, 5], [4, 5], [4, 6], [5, 6], [6, 6], [7, 6], [8, 6], [9, 5], [9, 4], [10, 4]], "cart": [1, 4], "forest": [[3, 1], [4, 1], [3, 2], [2, 6], [3, 6], [3, 7], [9, 0], [10, 0]], "elev1": [[7, 3], [8, 3], [9, 3], [6, 4], [7, 4], [8, 4], [7, 5], [8, 5], [6, 5]], "elev2": [[7, 4], [8, 4]]}, "units": [{"id": "wang", "spawn": [1, 3]}, {"id": "liu", "spawn": [2, 4]}, {"id": "shi", "spawn": [1, 5]}, {"id": "yan", "spawn": [0, 4]}, {"id": "duyan", "spawn": [5, 6]}, {"id": "erma", "spawn": [4, 2]}, {"id": "xiaohu", "spawn": [6, 5]}, {"id": "yemao", "spawn": [7, 4]}, {"id": "diao", "spawn": [8, 6]}]}, "shouqiao": {"id": "shouqiao", "name": "守桥 · 断后之战", "intro": ["断后！大队押着货撤了，过山风带九条人马衔尾追来——河水（波纹）不可涉。", "全境只有两处可渡：官道石桥，和南边的浅滩。四人守两渡，无弓可恃，全凭枪阵刀盾。", "喽啰胆气最薄（胆识 30）——渡口杀得狠了，整群人会跟着溃。"], "map": {"cols": 13, "rows": 9, "road": [[-2, 4], [-1, 4], [0, 4], [1, 4], [2, 4], [3, 4], [4, 4], [5, 4], [6, 4], [7, 4], [8, 4], [9, 4], [10, 4]], "cart": null, "forest": [[8, 1], [9, 1], [7, 7]], "elev1": [[1, 2], [2, 2]], "elev2": [], "elev3": [], "wall": [], "water": [[6, 0], [6, 1], [5, 2], [5, 3], [4, 5], [3, 6], [2, 8]], "_note": "river spans every row; only crossings are the bridge (4,4) and the ford (3,7)"}, "units": [{"id": "chen", "spawn": [3, 4], "garrison": 1}, {"id": "wang", "spawn": [2, 4], "garrison": 2}, {"id": "liu", "spawn": [2, 7], "garrison": 1}, {"id": "shi", "spawn": [2, 5], "garrison": 3}, {"id": "guoshanfeng", "spawn": [8, 4]}, {"id": "duyan", "spawn": [7, 3]}, {"id": "erma", "spawn": [7, 5]}, {"id": "yemao", "spawn": [9, 3]}, {"id": "lla", "spawn": [7, 2]}, {"id": "llb", "spawn": [7, 6]}, {"id": "llc", "spawn": [8, 2]}, {"id": "lld", "spawn": [8, 6]}, {"id": "xiaohu", "spawn": [8, 3]}]}, "duijue": {"id": "duijue", "name": "对决 · 黑风三煞", "intro": ["对决！黑风岭下，三煞带着一个跟班拦路——没有镖车、没有寨墙，只有兵器和当中一座土丘。", "三煞：蛇矛子的长枪及远，笑面虎的大斧伤重，坐山雕刀盾兼备——以三敌四。", "你这边：王铁枪隔位刺，刘三刀有盾可举，何九鞭的软兵不认盾牌。各找各的对手。"], "map": {"cols": 13, "rows": 9, "road": [], "cart": null, "forest": [[2, 2], [8, 6], [3, 7]], "elev1": [[4, 4], [6, 4], [5, 3], [6, 3], [4, 5], [5, 5]], "elev2": [[5, 4]], "elev3": [], "wall": [], "water": []}, "units": [{"id": "wang", "spawn": [1, 3]}, {"id": "liu", "spawn": [0, 4]}, {"id": "he", "spawn": [1, 5]}, {"id": "shemao", "spawn": [9, 3]}, {"id": "diao", "spawn": [9, 4]}, {"id": "xiaohu", "spawn": [8, 5]}, {"id": "lla", "spawn": [9, 5]}]}, "gongzhai": {"id": "gongzhai", "name": "攻寨 · 强袭山寨", "intro": ["攻寨！坐山雕独踞峰顶——山分三层，每层仰攻 −10% 命中，爬坡费力。", "寨墙合围如村落：正门在西坡（蛇矛子把守，门面两格），后门在南坡。守军不轻出。", "五人攻寨：弓弩压制，短矛结阵夺门，锤鞭破内。"], "map": {"cols": 13, "rows": 9, "road": [[-2, 4], [-1, 4], [0, 4], [1, 4], [2, 4], [2, 3], [3, 3]], "cart": null, "forest": [[2, 1], [3, 1], [0, 6], [1, 6], [0, 7]], "elev1": [[5, 1], [6, 1], [7, 1], [8, 1], [9, 1], [5, 2], [6, 2], [10, 2], [4, 3], [5, 3], [10, 3], [4, 4], [9, 4], [4, 5], [8, 5], [4, 6], [5, 6], [6, 6], [7, 6]], "elev2": [[6, 3], [6, 4], [7, 4], [6, 5], [7, 2], [8, 2], [9, 2], [9, 3], [8, 4], [7, 5], [5, 4], [5, 5]], "elev3": [[7, 3], [8, 3]], "wall": [[7, 2], [8, 2], [9, 2], [9, 3], [8, 4], [7, 5], [5, 5]]}, "units": [{"id": "chen", "spawn": [1, 4]}, {"id": "he", "spawn": [1, 3]}, {"id": "lu", "spawn": [0, 4]}, {"id": "shi", "spawn": [1, 5]}, {"id": "yan", "spawn": [0, 3]}, {"id": "shemao", "spawn": [6, 3], "garrison": 1}, {"id": "xiaohu", "spawn": [6, 4], "garrison": 2}, {"id": "duyan", "spawn": [6, 5], "garrison": 1}, {"id": "yemao", "spawn": [7, 4], "garrison": 2}, {"id": "diao", "spawn": [7, 3], "garrison": 2}]}};
 /* 血与银 · battle prototype — implements DESIGN.md §3 (M0/M1 staged ruleset):
    d100 under-chance (skill − defense + accuracy + height + surround, clamp 5–95,
    3-state morale multiplier), two-layer armor (head/body) with 25% head-hit crits,
@@ -206,6 +208,7 @@ function buildMap() {
   const elev2 = toKeys(m.elev2);
   const elev3 = toKeys(m.elev3);
   const wall = toKeys(m.wall);
+  const water = toKeys(m.water);
   const cartK = m.cart ? key(m.cart[0], m.cart[1]) : null;
   for (let r = 0; r < ROWS; r++) {
     for (let col = 0; col < COLS; col++) {
@@ -219,6 +222,7 @@ function buildMap() {
       if (road.has(k) && terrain === "grass") { terrain = "road"; brCost = 1; } // roads: half Breath
       if (k === cartK) { terrain = "cart"; impassable = true; }
       if (wall.has(k)) { terrain = "wall"; impassable = true; } // 寨墙：不可逾越
+      if (water.has(k)) { terrain = "water"; impassable = true; } // 河水：不可涉
       tiles.set(k, { q, r, elev, terrain, brCost, impassable,
         moveCost: terrain === "forest" ? 3 : 2 });
     }
@@ -291,6 +295,21 @@ function rosterTemplates() {
     E("shemao", "蛇矛子", "矛", { hpMax: 52, skill: 55, def: 6, shield: 0, resolve: 40,
       initBase: 96, breathBase: 89, armor: "pijia", helmet: "bumao",
       wpn: { kind: "melee", label: "长枪", hands: 2, reach: 2, acc: 20, dmin: 22, dmax: 32, armorEff: 0.9, pierce: 0.3, ap: 6, br: 15, special: { type: "spearwall", label: "枪林", ap: 3, br: 18 } } }),
+    E("lla", "喽啰·甲", "卒", { hpMax: 40, skill: 46, def: 3, shield: 0, resolve: 30,
+      initBase: 102, breathBase: 85, armor: "bujia", helmet: "none_h",
+      wpn: { kind: "melee", label: "短刀", hands: 1, acc: 0, dmin: 14, dmax: 22, armorEff: 0.8, pierce: 0.3, ap: 4, br: 10 } }),
+    E("llb", "喽啰·乙", "卒", { hpMax: 40, skill: 46, def: 3, shield: 0, resolve: 30,
+      initBase: 101, breathBase: 85, armor: "bujia", helmet: "none_h",
+      wpn: { kind: "melee", label: "短刀", hands: 1, acc: 0, dmin: 14, dmax: 22, armorEff: 0.8, pierce: 0.3, ap: 4, br: 10 } }),
+    E("llc", "喽啰·丙", "卒", { hpMax: 40, skill: 46, def: 3, shield: 0, resolve: 30,
+      initBase: 100, breathBase: 85, armor: "bujia", helmet: "none_h",
+      wpn: { kind: "melee", label: "短刀", hands: 1, acc: 0, dmin: 14, dmax: 22, armorEff: 0.8, pierce: 0.3, ap: 4, br: 10 } }),
+    E("lld", "喽啰·丁", "卒", { hpMax: 40, skill: 46, def: 3, shield: 0, resolve: 30,
+      initBase: 99, breathBase: 85, armor: "bujia", helmet: "none_h",
+      wpn: { kind: "melee", label: "短刀", hands: 1, acc: 0, dmin: 14, dmax: 22, armorEff: 0.8, pierce: 0.3, ap: 4, br: 10 } }),
+    E("guoshanfeng", "过山风", "首", { hpMax: 62, skill: 58, def: 9, shield: 15, resolve: 50,
+      initBase: 95, breathBase: 88, armor: "pijia", helmet: "pikui", leader: true,
+      wpn: { kind: "melee", label: "九环刀", hands: 1, acc: 10, dmin: 24, dmax: 34, armorEff: 1.0, pierce: 0.3, ap: 4, br: 12, bleed: true, special: { type: "decap", label: "斩首", ap: 5, br: 15, dmgMult: 1.3 } } }),
   ];
 }
 /* deployments come from the scenario file (scenarios/<id>.json) */
@@ -868,7 +887,7 @@ function hexPoints(cx, cy) {
   return pts.join(" ");
 }
 
-const TERRAIN_FILL = { grass: "#d8d2b0", forest: "#aab48c", hill: "#d9c79a", road: "#cdb488", cart: "#c2a878", wall: "#857258" };
+const TERRAIN_FILL = { grass: "#d8d2b0", forest: "#aab48c", hill: "#d9c79a", road: "#cdb488", cart: "#c2a878", wall: "#857258", water: "#a8bfc7" };
 
 function buildBoard() {
   boardEl.innerHTML = "";
@@ -890,7 +909,7 @@ function buildBoard() {
     p.addEventListener("mouseenter", () => onHexHover(key(t.q, t.r)));
     p.addEventListener("mouseleave", () => clearHexHover());
     tileLayer.appendChild(p);
-    if (t.terrain === "forest" || t.elev > 0 || t.terrain === "cart" || t.terrain === "wall") {
+    if (t.terrain === "forest" || t.elev > 0 || t.terrain === "cart" || t.terrain === "wall" || t.terrain === "water") {
       const tx = document.createElementNS("http://www.w3.org/2000/svg", "text");
       tx.setAttribute("x", x); tx.setAttribute("y", y + 5);
       tx.setAttribute("text-anchor", "middle");
@@ -898,7 +917,7 @@ function buildBoard() {
       tx.setAttribute("font-size", t.terrain === "cart" ? "19" : "13");
       if (t.terrain === "cart") tx.setAttribute("font-weight", "bold");
       tx.setAttribute("pointer-events", "none");
-      tx.textContent = t.terrain === "cart" ? "镖" : t.terrain === "wall" ? "栅" : t.terrain === "forest" ? "竹" : (t.elev === 3 ? "峰" : t.elev === 2 ? "岭" : "丘");
+      tx.textContent = t.terrain === "cart" ? "镖" : t.terrain === "wall" ? "栅" : t.terrain === "water" ? "波" : t.terrain === "forest" ? "竹" : (t.elev === 3 ? "峰" : t.elev === 2 ? "岭" : "丘");
       tileLayer.appendChild(tx);
     }
   }

@@ -121,6 +121,22 @@ ROSTER = [
     dict(id="shemao", name="蛇矛子", glyph="矛", side="enemy", hp_max=52, skill=55, dfn=6,
          shield=0, resolve=40, init_base=96, breath_base=89, armor="pijia", helmet="bumao",
          wpn="changqiang", wpn2=None),
+    # ---- the bridge mob (守桥 roster): brittle mooks that rout in cascades ----
+    dict(id="lla", name="喽啰·甲", glyph="卒", side="enemy", hp_max=40, skill=46, dfn=3,
+         shield=0, resolve=30, init_base=102, breath_base=85, armor="bujia", helmet="none_h",
+         wpn="duandao", wpn2=None),
+    dict(id="llb", name="喽啰·乙", glyph="卒", side="enemy", hp_max=40, skill=46, dfn=3,
+         shield=0, resolve=30, init_base=101, breath_base=85, armor="bujia", helmet="none_h",
+         wpn="duandao", wpn2=None),
+    dict(id="llc", name="喽啰·丙", glyph="卒", side="enemy", hp_max=40, skill=46, dfn=3,
+         shield=0, resolve=30, init_base=100, breath_base=85, armor="bujia", helmet="none_h",
+         wpn="duandao", wpn2=None),
+    dict(id="lld", name="喽啰·丁", glyph="卒", side="enemy", hp_max=40, skill=46, dfn=3,
+         shield=0, resolve=30, init_base=99, breath_base=85, armor="bujia", helmet="none_h",
+         wpn="duandao", wpn2=None),
+    dict(id="guoshanfeng", name="过山风", glyph="首", side="enemy", hp_max=62, skill=58, dfn=9,
+         shield=15, resolve=50, init_base=95, breath_base=88, armor="pijia", helmet="pikui",
+         wpn="jiuhuandao", wpn2=None, leader=True),
 ]
 
 COLS, ROWS = 13, 9  # defaults for flat_scenario; real maps come from scenario JSON
