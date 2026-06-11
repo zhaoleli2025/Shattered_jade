@@ -820,6 +820,20 @@ timelines are how side projects die — hitting month 6 still in M1 is *on pace*
 
 ## 10. Changelog
 
+**v0.20 (2026-06-11)** — **two new scenarios** (user direction: more difficulty
+variety, exercise more of the mechanism space), both batch-tuned into the 50–60%
+band. **守桥 ★★** (Hold the Bridge): outnumbered 4v9 river defense — new impassable
+water terrain, one stone bridge + one ford (river topology pinned by BFS test),
+garrisoned defenders, and a routable mook horde (four new 喽啰 templates, resolve 30,
+plus bandit chief 过山风) — the morale-cascade and chokepoint showcase. Tuning note:
+with a defending archer the chokehold measured 94–98% attacker-proof; the bow was
+removed and 笑面虎 joined the pursuers → 57.5%/600 seeds. **对决 ★★** (The Showdown):
+elite 3v4 on open ground around one hill — the pure weapon-matchup test (reach spear
+vs shield-and-saber vs shield-ignoring flail vs greataxe); tuned from 70.6% by adding
+a 跟班 to the 三煞 → 56.8%. Scenario dropdown is now a difficulty ladder:
+劫镖 ★ 58% · 守桥 ★★ 57% · 对决 ★★ 57% · 攻寨 ★★★ 46%. Ruleset freeze held: all
+additions are data (templates, terrain skin, scenarios). 70 tests green.
+
 **v0.19 (2026-06-11)** — four approved improvements shipped. (1) **Version control**:
 repo initialized and pushed to github.com/zhaoleli2025/Shattered_jade (commits per
 feature from here on). (2) **Garrison AI rule** (both implementations): scenario JSON
