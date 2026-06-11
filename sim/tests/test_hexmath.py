@@ -64,10 +64,10 @@ def test_gongzhai_mountain_village():
     assert s.tiles[(5, 3)].elev == 1           # lower slope
     assert s.tiles[(2, 4)].elev == 0           # valley road
     walls = [t for t in s.tiles.values() if t.terrain == "wall"]
-    assert len(walls) == 8 and all(t.impassable for t in walls)
+    assert len(walls) == 7 and all(t.impassable for t in walls)
     diao = s.by_id("diao")
     assert s.tiles[diao.pos()].elev == 3       # the chief holds the summit
-    # the village interior is enterable ONLY through its two gates
+    # the village interior is enterable ONLY through its gates
     interior = {(7, 3), (8, 3), (6, 4), (7, 4)}
     entries = set()
     for iq, ir in interior:
@@ -75,4 +75,7 @@ def test_gongzhai_mountain_village():
             t = s.tiles.get(k)
             if t and k not in interior and not t.impassable:
                 entries.add(k)
-    assert entries == {(6, 3), (6, 5)}         # 正门 west, 后门 south
+    assert entries == {(6, 3), (5, 4), (6, 5)}  # 正门 west (two hexes), 后门 south
+    # all five defenders are garrisoned — they hold, not chase
+    for uid in ("shemao", "xiaohu", "duyan", "yemao", "diao"):
+        assert s.by_id(uid).garrison is not None

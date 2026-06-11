@@ -70,7 +70,7 @@ def test_walls_block_pathing():
     unit = ready(move_to(s, "he", 8, 1))    # just north of the wall line
     park_others(s, {"he"})
     costs, _, _ = dijkstra(s, unit, 99, 999)
-    for wk in [(7, 2), (8, 2), (9, 2), (9, 3), (8, 4), (7, 5), (5, 4), (5, 5)]:
+    for wk in [(7, 2), (8, 2), (9, 2), (9, 3), (8, 4), (7, 5), (5, 5)]:
         assert wk not in costs              # nobody stands on the village wall
 
 
@@ -92,3 +92,22 @@ def test_gongzhai_battle_runs_clean():
         assert r["winner"] in ("player", "enemy", "draw")
         for u in s.alive_units():
             assert not s.tiles[u.pos()].impassable
+
+
+def test_garrison_holds_position():
+    s = S()
+    shemao = s.by_id("shemao")          # gate guard, garrison 1, home (6,3)
+    assert shemao.garrison == 1 and shemao.home == (6, 3)
+    park_others(s, {"shemao", "chen"}, where=(-4, 8))
+    ready(shemao)
+    move_to(s, "chen", 0, 4)            # foe far across the valley
+    s.rng = FakeRNG(default=100)
+    ai_turn(s, shemao)
+    from sim.hexmath import hex_dist
+    assert hex_dist(shemao, type("H", (), {"q": 6, "r": 3})) <= 1  # held the gate
+    # but he still fights what comes to him
+    move_to(s, "chen", 5, 3)            # adjacent now
+    ready(shemao)
+    n = len([e for e in s.events if e["type"] in ("hit", "miss")])
+    ai_turn(s, shemao)
+    assert len([e for e in s.events if e["type"] in ("hit", "miss")]) > n

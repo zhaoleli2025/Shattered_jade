@@ -559,6 +559,8 @@ async function doAttack(u, t, useSpecial) {
 }
 
 /* ---------------- enemy AI (v0: greedy + 3 hand rules) ---------------- */
+const inBounds = (u, t) => u.garrison == null || hexDist(t, u.home) <= u.garrison;
+
 async function aiTurn(u) {
   await sleep(250);
   for (let safety = 0; safety < 8 && u.alive && !gameOver; safety++) {
@@ -601,6 +603,7 @@ async function aiTurn(u) {
         let best = null, bestScore = -Infinity;
         for (const [k] of info.costs) {
           const t = tiles.get(k);
+          if (!inBounds(u, t)) continue;
           const dmin = Math.min(...foes.map(f => hexDist(t, f)));
           const score = Math.min(dmin, 6) + t.elev * 0.5;
           if (score > bestScore) { bestScore = score; best = k; }
@@ -617,6 +620,7 @@ async function aiTurn(u) {
         let best = null, bestScore = Infinity;
         for (const [k, c] of info.costs) {
           const t = tiles.get(k);
+          if (!inBounds(u, t)) continue;
           const dmin = Math.min(...foes.map(f => hexDist(t, f)));
           const score = dmin * 10 - t.elev * 3 + c * 0.1;
           if (score < bestScore) { bestScore = score; best = k; }
@@ -652,6 +656,7 @@ async function aiTurn(u) {
     let best = null, bestScore = Infinity;
     for (const [k, c] of info.costs) {
       const t = tiles.get(k);
+      if (!inBounds(u, t)) continue;
       const dmin = Math.min(...foes.map(f => hexDist(t, f)));
       const score = dmin * 10 - t.elev * 3 + c * 0.1;
       if (score < bestScore) { bestScore = score; best = k; }
@@ -1132,7 +1137,12 @@ async function boot() {
   buildMap();
   const tplById = {};
   for (const t of rosterTemplates()) tplById[t.id] = t;
-  units = scenario.units.map(su => mkUnit(tplById[su.id], su.spawn[0], su.spawn[1]));
+  units = scenario.units.map(su => {
+    const un = mkUnit(tplById[su.id], su.spawn[0], su.spawn[1]);
+    un.garrison = su.garrison ?? null; // AI holds within this radius of home
+    un.home = { q: su.spawn[0], r: su.spawn[1] };
+    return un;
+  });
   buildBoard();
   for (const line of scenario.intro || []) log(line, "sys");
   startRound();

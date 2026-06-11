@@ -14,6 +14,11 @@ def chance_vs(state, u, t):
     return hit_breakdown(state, u, t)[1]
 
 
+def in_bounds(u, k):
+    """Garrisoned units (scenario 'garrison': N) hold near their post."""
+    return u.garrison is None or hex_dist(k, u.home) <= u.garrison
+
+
 def ai_turn(state, u):
     for _safety in range(8):
         if state.over or not u.alive:
@@ -63,6 +68,8 @@ def ai_turn(state, u):
                 costs, _brc, prev = dijkstra(state, u, u.ap, u.breath)
                 best, best_score = None, -(1 << 30)
                 for k in costs:
+                    if not in_bounds(u, k):
+                        continue
                     t = state.tiles[k]
                     dmin = min(hex_dist(t, f) for f in foes)
                     score = min(dmin, 6) + t.elev * 0.5
@@ -77,6 +84,8 @@ def ai_turn(state, u):
                 costs, _brc, prev = dijkstra(state, u, u.ap, u.breath)
                 best, best_score = None, 1 << 30
                 for k, c in costs.items():
+                    if not in_bounds(u, k):
+                        continue
                     t = state.tiles[k]
                     dmin = min(hex_dist(t, f) for f in foes)
                     score = dmin * 10 - t.elev * 3 + c * 0.1
@@ -108,6 +117,8 @@ def ai_turn(state, u):
         costs, _brc, prev = dijkstra(state, u, u.ap, u.breath)
         best, best_score = None, 1 << 30
         for k, c in costs.items():
+            if not in_bounds(u, k):
+                continue
             t = state.tiles[k]
             dmin = min(hex_dist(t, f) for f in foes)
             score = dmin * 10 - t.elev * 3 + c * 0.1

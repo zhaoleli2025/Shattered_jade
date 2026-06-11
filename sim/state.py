@@ -58,6 +58,8 @@ class Unit:
     armor_h0: int = 0
     armor_name: str = ""
     helm_name: str = ""
+    garrison: int | None = None  # AI: won't advance beyond this many hexes from home
+    home: tuple | None = None    # spawn hex, the garrison anchor
 
     def pos(self):
         return (self.q, self.r)
@@ -136,7 +138,11 @@ def load_scenario(scen_id, seed=0):
     with open(path, encoding="utf-8") as f:
         spec = json.load(f)
     tpl_by_id = {t["id"]: t for t in data.ROSTER}
-    units = [make_unit(tpl_by_id[u["id"]], *u["spawn"]) for u in spec["units"]]
+    units = []
+    for su in spec["units"]:
+        u = make_unit(tpl_by_id[su["id"]], *su["spawn"])
+        u.garrison = su.get("garrison")
+        units.append(u)
     return BattleState(tiles=tiles_from_spec(spec["map"]), units=units,
                        rng=Streams(seed),
                        cols=spec["map"]["cols"], rows=spec["map"]["rows"])
@@ -159,6 +165,7 @@ def make_unit(tpl, q, r):
     )
     u.hp, u.breath = u.hp_max, u.breath_max
     u.armor_b0, u.armor_h0 = u.armor_b, u.armor_h
+    u.home = (sq, sr)
     return u
 
 
