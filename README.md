@@ -70,13 +70,17 @@ gets rebuilt — see above).
 
 The strategic layer uses the same hex grid as battles. The first authored region
 is 河北南部 c. 942 — the 拒马河 Khitan frontier, three garrison cities, and the
-bandit hills — in `world/hebei.json`:
+bandit hills — in `world/hebei.json`, with the BB living-world layer on top:
+roaming parties (bandits, a caravan, a patrol, Khitan raiders) tick daily and
+intercept the column on contact, hidden lairs are found by proximity, provisions
+burn per day, and an encounter names the battle scenario seeded by the world hex
+(caught at the bridge → 守桥; at a frontier ford → 血战).
 
 ```python
 from sim.overworld import load_world, travel, render
-w = load_world("hebei")
-travel(w, "dingzhou")     # 镇州 → 定州 along the 官道: 2 天
-print(render(w))          # ASCII region map, party = 镖
+w = load_world("hebei", seed=0)
+travel(w, "dingzhou")     # 镇州 → 定州 along the 官道: 2 天 (unless intercepted)
+print(render(w))          # ASCII map: 镖=you 匪=bandits 商=caravan 巡=patrol 骑=Khitan
 ```
 
 ## M1 — the Godot client (in progress)

@@ -1,4 +1,4 @@
-# Shattered Jade (碎玉) — Design Document v0.27
+# Shattered Jade (碎玉) — Design Document v0.29
 
 > **Title: Shattered Jade (碎玉)** — final, 2026-06-11. 宁为玉碎，不为瓦全 ("better
 > shattered jade than intact tile"): the permadeath creed in two characters — your
@@ -823,8 +823,12 @@ Full comparison in `RESEARCH.md` (tech-stack section). Decisions:
   perturb combat rolls. (The v0.2 "don't break engagement under ZoC" rule was never
   implemented — future, with influence maps, JSON personalities, temperature: M3+.)
   AI is a permanent ~20% tax on every milestone, not a line item.
-- **Overworld gen**: Voronoi + layered noise (Amit Patel's method; FastNoiseLite
-  built-in). Generate once at campaign start, serialize as plain state.
+- **Overworld: a FIXED, hand-authored historical map** (v0.29 decision — our
+  deliberate divergence from BB's procgen: the map IS the setting). The
+  historical macro-regions 河北 · 河东 · 河南 · 关中 · 山东 as authored region
+  files with real cities and **anchored set-piece sites** (虎牢关 is always the
+  duel; 滹沱桥 always the bridge fight). Procgen is demoted to minor per-campaign
+  scatter (lair/camp placement); world state serializes as plain data.
 - **Saves**: to_dict/from_dict per system, version int from day one, flat tables keyed
   by stable IDs, gzip. Never load engine Resource files from user folders; JSON only.
 - **Moddability tiers**: (1) JSON content packs with load order + ID override — free
@@ -865,7 +869,8 @@ decay, no Xia). Levels 1–5; 9 techniques in 3 tiers. Injuries persisting, perm
 mood at 3 states. Overworld saves only. 10–12 written events. **Exit: "one more
 contract" compulsion works; economy KPI within tuning range (pillar 5).**
 
-**M3 — Procedural world.** Map gen, 3 provinces + the Northern Marches, caravan/
+**M3 — The wide world.** The remaining hand-authored regions (河东 · 关中 ·
+山东 + the Northern Marches; fixed historical map per v0.29), caravan/
 prosperity sim, settlement situations, full event system, camp roles, leitai,
 trail-call parley, fame decay + Xia, suspend save (replay infra is now mature).
 Cheap second/third factions: deserters (human AI, better armor) and jiangshi (mechanics
@@ -947,6 +952,49 @@ timelines are how side projects die — hitting month 6 still in M1 is *on pace*
 ---
 
 ## 10. Changelog
+
+**v0.29 (2026-06-12)** — **the fixed map: anchored sites + several regions** (the
+deliberate divergence from BB: their procgen map is disposable; ours IS the
+setting — §7 overworld bullet and §7.1 M3 rewritten, Voronoi procgen retired).
+(1) **Anchored set-piece sites** override the terrain encounter table: 滹沱桥
+(守桥) · 拒马东渡/西渡 (血战) · 黑风岭 (对决) in 河北; a lair's own scenario
+also binds (黑风寨/嵩山贼穴 → 攻寨). Caught at a named place, you fight THAT
+battle. (2) **Second region: 河南·京畿** (20×12, c. 942) — 汴州 the capital,
+洛阳, 郑州, 滑州, the 黄河 with 白马渡/孟津渡, **虎牢关** as the duel pass, a
+hidden 嵩山贼穴, its own caravan/patrol/band. (3) **Region crossing**: border
+exit hexes link regions (赵州 road ↔ 滑州 over 白马渡); cross() carries the day
+clock, provisions, and the event log; scenario references are validated against
+scenarios/ at load — fixed map, fail loud. (4) **Verification pass on v0.2**
+(3-agent adversarial review + 250-run fuzz; determinism/soak/stream-isolation
+all PASS): fixed — razed bands now disband (no ghost ambushes), hidden lairs no
+longer leak through their tile (kept natural terrain: no render hole, no cheap-
+path tell, no travel-by-id to an undiscovered rumor), per-step spotting and
+no slipping past a hostile at departure, starving emitted on battle days, day-
+stamp consistency (dusk events stamp the day they happen), resupply only in
+friendly un-razed settlements (camping in town restocks; 辽营 feeds no one),
+bandit prowl is a real cost-paid march (no river hops), routed parties march on
+day one, razed lairs render as 墟 ruins, two non-adjacent 官道 gaps repaired,
+load-time validation of party homes/waypoints/kinds. 114 tests green.
+
+**v0.28 (2026-06-12)** — **overworld v0.2: the BB living-world layer** (per the
+RESEARCH.md campaign digest — the map is no longer scenery). (1) **Roaming
+parties** tick daily: the 黑风团伙 prowls its 西山 leash drawn to the roads (raid
+posture), the 绸缎商队 walks a trade loop 镇州–河间–沧州–定州, the 成德军巡骑
+polices the 官道, and a Khitan 打草谷 column rides its circuit through the
+frontier fords. The world grinds on without the player — bandits catching a
+caravan emit `caravan_attacked` (the prosperity ripple lands with the economy,
+M2). (2) **Interception is contact, not coincidence**: a hostile within 1 hex
+stops the column mid-march; the encounter event names the battle scenario
+**seeded by the world hex** (road→劫镖 · bridge→守桥 · ford→血战 · hills→攻寨,
+data-driven in `world/*.json`) — caught crossing 滹沱桥, you fight the bridge
+battle. (3) **Sight and discovery**: sight 3 (+1 on hills); parties and hidden
+lairs are spotted by proximity — 黑风寨 starts unmarked on the map and renders as
+unremarkable ground until found; `raze()` on a stormed lair disbands its band
+for good. (4) **Provisions**: PROVISIONS_MAX=12 days of supplies, 1/day, refill
+overnight at any settlement; at 0 the `starving` event fires (mood/desertion
+arrive with M2). (5) All world randomness draws from the **"worldgen" stream**
+— the first second-stream consumer, with a new test pinning that overworld play
+can never perturb combat rolls (closes audit gap G16). 108 tests green.
 
 **v0.27 (2026-06-12)** — **overworld v0: the 河北南部 test region** (M2 track) +
 **会战 removed**. (1) **The strategic map is HEX**, same pointy-top axial grid and

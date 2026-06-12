@@ -147,13 +147,15 @@
       [10, 9],
       [10, 8],
       [12, 7],
-      [13, 6],
       [14, 5],
       [14, 4],
       [15, 4],
       [16, 3],
       [16, 2],
-      [17, 1]
+      [17, 1],
+      [1, 15],
+      [2, 7],
+      [11, 7]
     ]
   },
   "settlements": [
@@ -203,7 +205,9 @@
       "id": "heifengzhai",
       "name": "黑风寨",
       "kind": "stronghold",
-      "at": [-2, 9]
+      "at": [-2, 9],
+      "hidden": true,
+      "scenario": "gongzhai"
     },
     {
       "id": "mozhou",
@@ -218,5 +222,101 @@
       "at": [17, 1]
     }
   ],
-  "start": "zhenzhou"
+  "start": "zhenzhou",
+  "parties": [
+    {
+      "id": "heifeng_band",
+      "name": "黑风团伙",
+      "kind": "bandit",
+      "home": "heifengzhai",
+      "speed": 6,
+      "prowl": 4
+    },
+    {
+      "id": "silk_caravan",
+      "name": "绸缎商队",
+      "kind": "caravan",
+      "route": [
+        "zhenzhou",
+        "hejian",
+        "cangzhou",
+        "hejian",
+        "dingzhou",
+        "wangdu"
+      ],
+      "speed": 7
+    },
+    {
+      "id": "chengde_patrol",
+      "name": "成德军巡骑",
+      "kind": "patrol",
+      "route": [
+        "zhenzhou",
+        "wangdu",
+        "dingzhou",
+        "wangdu"
+      ],
+      "speed": 8
+    },
+    {
+      "id": "dacaogu",
+      "name": "打草谷游骑",
+      "kind": "raider",
+      "route": [
+        "yingzhou",
+        "hejian",
+        "yingzhou",
+        "mozhou"
+      ],
+      "speed": 9
+    }
+  ],
+  "encounters": {
+    "road": "jiebiao",
+    "bridge": "shouqiao",
+    "ford": "juma",
+    "hills": "gongzhai",
+    "forest": "jiebiao",
+    "plain": "duijue",
+    "settlement": "jiebiao"
+  },
+  "sites": [
+    {
+      "id": "hutuo_bridge",
+      "name": "滹沱桥",
+      "glyph": "桥",
+      "at": [0, 12],
+      "scenario": "shouqiao"
+    },
+    {
+      "id": "juma_east_ford",
+      "name": "拒马东渡",
+      "glyph": "渡",
+      "at": [16, 3],
+      "scenario": "juma"
+    },
+    {
+      "id": "juma_west_ford",
+      "name": "拒马西渡",
+      "glyph": "渡",
+      "at": [8, 3],
+      "scenario": "juma"
+    },
+    {
+      "id": "heifengling",
+      "name": "黑风岭",
+      "glyph": "岭",
+      "at": [-1, 5],
+      "scenario": "duijue"
+    }
+  ],
+  "exits": [
+    {
+      "id": "to_henan",
+      "name": "南下河南",
+      "at": [1, 15],
+      "to": "henan",
+      "entry": "huazhou"
+    }
+  ]
 }

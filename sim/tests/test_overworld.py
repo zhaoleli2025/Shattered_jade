@@ -1,7 +1,11 @@
 """Overworld v0: the 河北南部 test region — terrain, roads, rivers, the day clock."""
+import json
+import os
+
 import pytest
 
-from sim.overworld import MOVE_PER_DAY, dijkstra, load_world, path_to, travel
+from sim.overworld import (MOVE_PER_DAY, dijkstra, load_world, path_to, render,
+                           travel)
 
 
 def W():
@@ -69,3 +73,186 @@ def test_frontier_crossable_only_at_the_fords():
 def test_unknown_world_fails_loud():
     with pytest.raises(FileNotFoundError):
         load_world("jiangnan")
+
+
+# ---- the BB living-world layer (v0.2): parties, sight, provisions ----
+
+def test_parties_tick_legally():
+    w = W()
+    band = next(p for p in w.parties if p.kind == "bandit")
+    for _ in range(15):
+        from sim.overworld import _tick_parties
+        _tick_parties(w)
+        for p in w.parties:
+            assert p.pos in w.tiles and w.tiles[p.pos].cost is not None
+        from sim.hexmath import hex_dist
+        assert hex_dist(band.pos, band.home) <= band.prowl  # the leash holds
+
+
+def test_caravan_walks_its_route():
+    w = W()
+    car = next(p for p in w.parties if p.kind == "caravan")
+    visited = set()
+    from sim.overworld import _tick_parties
+    for _ in range(30):
+        _tick_parties(w)
+        for s in w.settlements.values():
+            if car.pos == s["at"]:
+                visited.add(s["id"])
+    assert {"hejian", "cangzhou"} & visited  # it actually trades east
+
+
+def test_hidden_lair_revealed_by_proximity():
+    w = W()
+    assert "寨" not in render(w)                       # 黑风寨 starts unknown
+    travel(w, [-2, 8])                                  # ride into the 西山
+    assert any(e["type"] == "spotted" and e["what"] == "heifengzhai"
+               for e in w.events)
+    assert "寨" in render(w)
+
+
+def test_provisions_burn_and_refill():
+    from sim.overworld import PROVISIONS_MAX, camp
+    w = W()
+    w.party = (3, 10)                                   # open country, no gates
+    assert w.tiles[w.party].terrain == "plain"
+    for _ in range(PROVISIONS_MAX + 2):
+        camp(w)
+    assert w.provisions == 0
+    assert any(e["type"] == "starving" for e in w.events)
+    travel(w, "zhaozhou")                               # nearest gates: resupply
+    assert w.provisions == PROVISIONS_MAX
+    camp(w)                                             # camping IN town restocks too
+    assert w.provisions == PROVISIONS_MAX
+
+
+def test_hostile_adjacency_forces_an_encounter():
+    from sim.overworld import camp
+    w = W()
+    band = next(p for p in w.parties if p.kind == "bandit")
+    nk = next(k for k in __import__("sim.hexmath", fromlist=["neighbors"])
+              .neighbors(*w.party) if w.tiles[k].cost is not None)
+    band.pos, band.home, band.prowl = nk, nk, 0         # pinned at the gates
+    enc = camp(w)
+    assert enc is band
+    e = next(e for e in w.events if e["type"] == "encounter")
+    # the world hex seeds the battle: at 镇州's gates that's the convoy ambush
+    assert e["scenario"] == "jiebiao" and e["party"] == "heifeng_band"
+
+
+def test_interception_halts_the_march():
+    w = W()
+    band = next(p for p in w.parties if p.kind == "bandit")
+    # park the band astride the 官道 north of the bridge, leashed in place
+    road_hex = (1, 11)
+    assert w.tiles[road_hex].terrain == "road"
+    band.pos, band.home, band.prowl = road_hex, road_hex, 0
+    days = travel(w, "dingzhou")
+    last = w.events[-1]
+    assert last["type"] == "travel" and last["intercepted"] == "heifeng_band"
+    assert w.party != w.settlements["dingzhou"]["at"]   # halted mid-march
+    assert days == 1
+    enc = next(e for e in w.events if e["type"] == "encounter")
+    assert enc["scenario"] == "shouqiao"    # caught crossing 滹沱桥 — the bridge fight
+
+
+def test_worldgen_stream_never_touches_combat_rolls():
+    """Audit G16: the first second-stream consumer pins stream independence."""
+    from sim.rng import Streams
+    a = Streams(3)
+    clean = [a.d100() for _ in range(20)]
+    b = Streams(3)
+    for _ in range(57):
+        b.rint(0, 100, "worldgen")                      # overworld noise
+    assert [b.d100() for _ in range(20)] == clean
+
+
+def test_razing_the_lair_disbands_the_band():
+    from sim.overworld import _tick_parties, raze
+    w = W()
+    band = next(p for p in w.parties if p.kind == "bandit")
+    lair = w.settlements["heifengzhai"]
+    w.party = lair["at"]                                # stormed it (battle won)
+    assert raze(w, "heifengzhai") is True
+    assert band.alive is False                          # the band is disbanded
+    band.pos = lair["at"]
+    for _ in range(5):
+        _tick_parties(w)
+    assert band.pos == lair["at"]                       # and never stirs again
+    from sim.overworld import camp
+    enc = camp(w)
+    assert enc is None                                  # dead bands don't ambush
+    assert raze(w, "heifengzhai") is False              # no double razing
+
+
+# ---- v0.3: the fixed map — anchored sites, several regions ----
+
+def test_site_overrides_terrain_encounter():
+    from sim.overworld import camp
+    w = W()
+    ridge = w.sites["heifengling"]          # hills would say 攻寨; the site says duel
+    assert w.tiles[ridge["at"]].terrain == "hills"
+    w.party = ridge["at"]
+    band = next(p for p in w.parties if p.kind == "bandit")
+    band.pos, band.home, band.prowl = ridge["at"], ridge["at"], 0
+    camp(w)
+    e = next(e for e in w.events if e["type"] == "encounter")
+    assert e["site"] == "heifengling" and e["scenario"] == "duijue"
+
+
+def test_henan_loads_with_its_own_world():
+    w = load_world("henan")
+    assert w.settlements["bianzhou"]["kind"] == "city"
+    assert "hulaoguan" in w.sites           # 虎牢关, the duel pass
+    costs, _ = dijkstra(w, w.party)
+    for s in w.settlements.values():
+        assert s["at"] in costs, f"{s['id']} unreachable"
+
+
+def test_crossing_into_henan_carries_the_clock():
+    from sim.overworld import cross
+    w = W()
+    days = travel(w, w.exits["to_henan"]["at"])
+    if w.events[-1]["intercepted"]:
+        return                              # waylaid en route — a legal outcome
+    prov, day = w.provisions, w.day
+    w2 = cross(w, "to_henan")
+    assert w2 is not None and w2.spec["id"] == "henan"
+    assert w2.day == day and w2.provisions == prov
+    assert w2.at_settlement()["id"] == "huazhou"
+    assert w2.events[-1]["type"] == "crossed"
+    # and the road home exists
+    assert w2.exits["to_hebei"]["to"] == "hebei"
+
+
+def test_world_rejects_unknown_scenario_refs(tmp_path, monkeypatch):
+    import sim.overworld as ow
+    spec = json.loads(open(os.path.join(ow.WORLD_DIR, "henan.json"),
+                           encoding="utf-8").read())
+    spec["encounters"]["road"] = "no_such_battle"
+    (tmp_path / "henan.json").write_text(json.dumps(spec), encoding="utf-8")
+    (tmp_path / "hebei.json").write_text("{}", encoding="utf-8")  # exit target exists
+    monkeypatch.setattr(ow, "WORLD_DIR", str(tmp_path))
+    with pytest.raises(ValueError, match="no_such_battle"):
+        load_world("henan")
+
+
+def test_no_resupply_in_occupied_towns():
+    from sim.overworld import camp
+    w = W()
+    w.party = w.settlements["mozhou"]["at"]             # 辽营 feeds no one
+    w.provisions = 5
+    camp(w)
+    assert w.provisions == 4
+
+
+def test_departure_beside_a_hostile_is_an_encounter():
+    w = W()
+    band = next(p for p in w.parties if p.kind == "bandit")
+    nk = next(k for k in __import__("sim.hexmath", fromlist=["neighbors"])
+              .neighbors(*w.party) if w.tiles[k].cost is not None)
+    band.pos, band.home, band.prowl = nk, nk, 0
+    days = travel(w, "dingzhou")                        # no slipping past the gates
+    assert days == 1 and w.events[-1]["intercepted"] == "heifeng_band"
+    enc = next(e for e in w.events if e["type"] == "encounter")
+    assert enc["day"] == w.events[-1]["day"]            # one contact, one day stamp

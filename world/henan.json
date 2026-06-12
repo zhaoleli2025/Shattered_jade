@@ -1,0 +1,193 @@
+{
+  "id": "henan",
+  "name": "河南·京畿",
+  "region": "河南",
+  "era": "c. 942 · 后晋 — 汴州为都",
+  "cols": 20,
+  "rows": 12,
+  "map": {
+    "hills": [
+      [2, 6],
+      [3, 6],
+      [2, 7],
+      [3, 7],
+      [1, 8],
+      [2, 8],
+      [1, 10],
+      [2, 10],
+      [2, 11],
+      [3, 11],
+      [-2, 9],
+      [-3, 10]
+    ],
+    "forest": [
+      [14, 5],
+      [15, 5],
+      [13, 6],
+      [-1, 4],
+      [0, 4]
+    ],
+    "river": [
+      [-1, 2],
+      [0, 2],
+      [1, 2],
+      [2, 2],
+      [4, 2],
+      [5, 2],
+      [6, 2],
+      [7, 2],
+      [8, 2],
+      [9, 2],
+      [10, 2],
+      [12, 2],
+      [13, 2],
+      [14, 2],
+      [15, 2],
+      [16, 2],
+      [17, 2],
+      [18, 2]
+    ],
+    "ford": [
+      [3, 2],
+      [11, 2]
+    ],
+    "bridge": [],
+    "road": [
+      [12, 1],
+      [11, 2],
+      [11, 3],
+      [10, 4],
+      [10, 5],
+      [9, 6],
+      [10, 7],
+      [10, 8],
+      [9, 8],
+      [8, 8],
+      [7, 8],
+      [6, 8],
+      [5, 8],
+      [4, 8],
+      [3, 8],
+      [3, 7],
+      [2, 7],
+      [1, 7]
+    ]
+  },
+  "settlements": [
+    {
+      "id": "bianzhou",
+      "name": "汴州",
+      "kind": "city",
+      "at": [10, 8]
+    },
+    {
+      "id": "luoyang",
+      "name": "洛阳",
+      "kind": "city",
+      "at": [0, 7]
+    },
+    {
+      "id": "zhengzhou",
+      "name": "郑州",
+      "kind": "town",
+      "at": [4, 8]
+    },
+    {
+      "id": "huazhou",
+      "name": "滑州",
+      "kind": "town",
+      "at": [10, 4]
+    },
+    {
+      "id": "zhongmu",
+      "name": "中牟",
+      "kind": "village",
+      "at": [7, 8]
+    },
+    {
+      "id": "songshan_lair",
+      "name": "嵩山贼穴",
+      "kind": "stronghold",
+      "at": [2, 11],
+      "hidden": true,
+      "scenario": "gongzhai"
+    }
+  ],
+  "sites": [
+    {
+      "id": "hulaoguan",
+      "name": "虎牢关",
+      "glyph": "关",
+      "at": [3, 7],
+      "scenario": "duijue"
+    },
+    {
+      "id": "baima_ford",
+      "name": "白马渡",
+      "glyph": "渡",
+      "at": [11, 2],
+      "scenario": "shouqiao"
+    },
+    {
+      "id": "mengjin_ford",
+      "name": "孟津渡",
+      "glyph": "渡",
+      "at": [3, 2],
+      "scenario": "shouqiao"
+    }
+  ],
+  "parties": [
+    {
+      "id": "songshan_band",
+      "name": "嵩山贼伙",
+      "kind": "bandit",
+      "home": "songshan_lair",
+      "speed": 6,
+      "prowl": 4
+    },
+    {
+      "id": "capital_caravan",
+      "name": "漕纲商队",
+      "kind": "caravan",
+      "route": [
+        "bianzhou",
+        "zhongmu",
+        "zhengzhou",
+        "luoyang",
+        "zhengzhou"
+      ],
+      "speed": 7
+    },
+    {
+      "id": "xuanwu_patrol",
+      "name": "宣武军巡骑",
+      "kind": "patrol",
+      "route": [
+        "bianzhou",
+        "zhongmu",
+        "zhengzhou",
+        "zhongmu"
+      ],
+      "speed": 8
+    }
+  ],
+  "encounters": {
+    "road": "jiebiao",
+    "bridge": "shouqiao",
+    "ford": "shouqiao",
+    "hills": "gongzhai",
+    "forest": "jiebiao",
+    "plain": "duijue",
+    "settlement": "jiebiao"
+  },
+  "exits": [
+    {
+      "id": "to_hebei",
+      "name": "北上河北",
+      "at": [12, 1],
+      "to": "hebei",
+      "entry": "zhaozhou"
+    }
+  ],
+  "start": "bianzhou"
+}
