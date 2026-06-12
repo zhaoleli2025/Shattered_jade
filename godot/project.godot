@@ -1,0 +1,12 @@
+; Shattered Jade 碎玉 — M1 Godot client (DESIGN.md §7 / §7.1 M1).
+; The sim core under sim_core/ is a 1:1 port of ../sim/*.py; godot/tests/
+; pins it to golden vectors exported by ../tools/export_golden.py.
+; Dev loop on a headless box:
+;   /data/zhaoleli/opt/godot/godot --headless --path . --script tests/run_tests.gd
+
+config_version=5
+
+[application]
+
+config/name="Shattered Jade 碎玉"
+config/features=PackedStringArray("4.1")

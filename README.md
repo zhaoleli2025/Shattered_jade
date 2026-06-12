@@ -14,19 +14,29 @@ Khitan invasion. Every blade has a name; permadeath is permanent: 宁为玉碎�
 | `scenarios/*.json` | Battles as data — read by both the web prototype and the sim |
 | `prototype_web/` | Playable browser battle prototype (no build step) |
 | `sim/` | M0: the engine-agnostic Python combat sim — same rules, pytest-locked, with an AI-vs-AI batch runner |
+| `godot/` | M1: the Godot 4 client — GDScript sim-core port, pinned to Python golden vectors |
+| `releases/` | Frozen STABLE editions of the standalone HTML (test-gated, version-stamped) |
 | `tools/build_standalone.py` | Regenerates the offline standalone HTML from index.html + game.js + scenarios |
 
 ## Play the prototype
 
 ```bash
-cd prototype_web && python3 -m http.server 8765
-# open http://localhost:8765/
+python3 tools/serve.py            # dev server, Cache-Control: no-store —
+# open http://<host>:8023/        # every refresh is fresh, no cache roulette
 ```
 
-Or just open `prototype_web/shattered_jade_battle.html` — fully standalone,
-scenarios embedded, works offline. (It is a build artifact: regenerate with
+For a **stable edition**, don't play the dev tree — cut a release:
+
+```bash
+python3 tools/release.py          # gate: full suite green → stamps the DESIGN.md
+                                  # version into releases/shattered_jade_vX.Y.html
+```
+
+Each release is a single offline file (scenarios embedded) you can copy anywhere
+and double-click; `releases/latest.html` always points at the newest. The dev
+artifact `prototype_web/shattered_jade_battle.html` is rebuilt by
 `python3 tools/build_standalone.py` after touching game.js or scenarios; a test
-fails if it drifts. `prototype_web/scenarios` is a symlink to `../scenarios` —
+fails if it drifts. (`prototype_web/scenarios` is a symlink to `../scenarios` —
 serve from a symlink-aware host, i.e. anything but a Windows checkout.)
 
 Four battles, a difficulty ladder (AI-vs-AI player win rate at 2000 seeds):
@@ -54,4 +64,21 @@ The web prototype is the reference implementation; `sim/` is the port and the
 balance instrument. Any combat-rule change must land in both (and the standalone
 gets rebuilt — see above).
 
-Roadmap (see `DESIGN.md` §7.1): M0 ✅ → M1 Godot vertical slice → M2 campaign loop.
+## M1 — the Godot client (in progress)
+
+The stable ultimate edition is the Godot 4 desktop game (`DESIGN.md` §7). The
+GDScript sim-core port lives in `godot/sim_core/`, pinned bit-for-bit to the
+Python sim by golden vectors (floats travel as IEEE-754 bits — JSON text loses
+the 17th digit):
+
+```bash
+python3 tools/export_golden.py    # regenerate vectors after sim-core changes
+/data/zhaoleli/opt/godot/godot --headless --path godot --script tests/run_tests.gd
+```
+
+This server runs **Godot 4.1.4** (`/data/zhaoleli/opt/godot/godot` — glibc 2.27
+caps us there; 4.2+ needs 2.28). Develop/play the scenes on a desktop with any
+Godot 4.x — the headless parity suite is the contract between the two.
+
+Roadmap (see `DESIGN.md` §7.1): M0 ✅ → M1 Godot vertical slice (started) → M2
+campaign loop.
