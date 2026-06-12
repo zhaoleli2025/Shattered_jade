@@ -18,7 +18,7 @@ from .commands import Stance, Strike, Swap, resolve, targets_of
 from .engine import run_battle
 from .hexmath import hex_dist
 from .overworld import (camp, fail_contract, jobs, load_world, market_buy,
-                        raze, smith_upgrade, take_job, travel,
+                        plunder, raze, smith_upgrade, take_job, travel, waylay,
                         dijkstra as wdijkstra, render as wrender)
 from .pathfind import dijkstra
 from .rules import hit_breakdown
@@ -164,6 +164,7 @@ WORLD_HELP = """\
   buy      市集买粮(补满)  jobs      看镖单
   take N   接第 N 单      smith 人 部位   铁匠铺升品 (如: smith wang wpn_q)
   map      重看舆图       who       已发现的队伍
+  raid N   劫掠身边的商队/巡骑（who 列表第 N 个）
   q        收兵退出       ?         帮助"""
 
 
@@ -244,9 +245,29 @@ def play_campaign(world_id="hebei", seed=0):
         elif op == "map":
             continue
         elif op == "who":
-            for p in w.parties:
-                if p.pid in w.spotted and p.alive:
-                    say(f"  {p.name}（{p.kind}）在 {p.pos}")
+            for i, p in enumerate((p for p in w.parties
+                                   if p.pid in w.spotted and p.alive), 1):
+                say(f"  [{i}] {p.name}（{p.kind}）在 {p.pos}")
+        elif op == "raid" and len(toks) > 1:
+            seen = [p for p in w.parties if p.pid in w.spotted and p.alive]
+            try:
+                target = seen[int(toks[1]) - 1]
+            except (ValueError, IndexError):
+                target = None
+            p = waylay(w, target.pid) if target else None
+            if not p:
+                say("  够不着，或那不是能劫的队伍。")
+            else:
+                e = w.events[-1]
+                say(f"  伏于道旁，劫{p.name}——【{e['scenario']}】")
+                winner = play_battle(e["scenario"], seed=w.day, gear=w.gear)
+                if winner == "player":
+                    pay = plunder(w, p.pid)
+                    say(f"  得手！掠得{pay}两。官府闻之必怒。")
+                else:
+                    say("  劫道失手，败走。")
+                    fail_contract(w)
+                    retreat(w)
         elif op == "camp":
             enc = camp(w)
             if enc:

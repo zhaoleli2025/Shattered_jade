@@ -363,3 +363,23 @@ def test_smith_only_in_cities():
     w.gold = 1000
     w.party = w.settlements["wangdu"]["at"]             # a village has no forge
     assert smith_upgrade(w, "wang", "wpn_q") is None
+
+
+def test_waylay_turns_the_bureau_bandit():
+    from sim.hexmath import neighbors
+    from sim.overworld import plunder, waylay
+    w = W()
+    car = next(p for p in w.parties if p.kind == "caravan")
+    car.pos = (w.party[0] + 5, w.party[1])              # somewhere down the road
+    assert waylay(w, car.pid) is None                   # out of reach — no ambush
+    car.pos = next(k for k in neighbors(*w.party) if w.tiles[k].cost is not None)
+    p = waylay(w, car.pid)
+    assert p is car
+    e = next(e for e in w.events if e["type"] == "waylay")
+    assert e["scenario"] == "jiebiao"                   # a convoy fight, roles reversed
+    gold0 = w.gold
+    assert plunder(w, car.pid) == 150
+    assert w.gold == gold0 + 150 and car.alive is False
+    assert any(e["type"] == "infamy" for e in w.events)
+    band = next(p for p in w.parties if p.kind == "bandit")
+    assert waylay(w, band.pid) is None                  # bandits get encounters, not waylays

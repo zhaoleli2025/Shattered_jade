@@ -1,4 +1,4 @@
-# Shattered Jade (碎玉) — Design Document v0.35
+# Shattered Jade (碎玉) — Design Document v0.36
 
 > **Title: Shattered Jade (碎玉)** — final, 2026-06-11. 宁为玉碎，不为瓦全 ("better
 > shattered jade than intact tile"): the permadeath creed in two characters — your
@@ -952,6 +952,16 @@ timelines are how side projects die — hitting month 6 still in M1 is *on pace*
 ---
 
 ## 10. Changelog
+
+**v0.36 (2026-06-12)** — **the road has two sides** (劫道). (1) **Waylaying**:
+caravans and patrols within reach become prey — sim `waylay()/plunder()`
+(commerce 150两, soldiers 60两, an `infamy` event as the relations hook for
+M2), terminal `raid N`, and on the web a gold-ringed clickable token offering
+劫道. Defeat costs the usual rout plus the voided bond. (2) **The march is
+visible**: the column walks the grids hex by hex (~10 hexes/s) with the camera
+following. (3) **出城**: the drawer's own close button — the open drawer had
+been covering the toggle (z-index), another way out was needed. 123 tests
+green.
 
 **v0.35 (2026-06-12)** — **河北 from the real map + the town drawer**. (1) The
 pilot region is now **generated from true geography**: every place projected

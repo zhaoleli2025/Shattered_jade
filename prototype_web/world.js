@@ -115,7 +115,8 @@ const world = { day: 1, provisions: PROVISIONS_MAX, party: null,
 let dij = null;                 // { costs, prev } from the column's hex
 let busy = false;               // a journey is animating
 let pendingScen = null;         // scenario behind the 开战 button
-let pendingParty = null;        // the hostile behind it
+let pendingParty = null;        // the hostile (or the prey) behind it
+let pendingKind = "encounter";  // encounter | waylay
 let pendingBattle = null;       // {kind, target, scenario} — survives the page hop
 
 /* seeded, serializable PRNG (mulberry32) — the worldgen stream's stand-in */
@@ -198,6 +199,18 @@ function applyBattleResult(resOverride) {
       const b = retreatToFriendly();
       log(`第${world.day}日 · 攻寨失利，残部退守${b ? b.name : "旷野"}`, "r");
       failContract();   // a lost battle voids the bond (sim fail_contract)
+    }
+  } else if (pend.kind === "waylay") {
+    const p = world.parties.find((x) => x.pid === pend.target);
+    if (win && p) {
+      p.alive = false;
+      const pay = WAYLAY_LOOT[p.kind] || 0;
+      world.gold += pay;
+      log(`第${world.day}日 · 劫了${p.name}，掠得${pay}两——官府闻之必怒`, "r");
+    } else if (!win) {
+      failContract();
+      const b = retreatToFriendly();
+      log(`第${world.day}日 · 劫道失手，败走${b ? b.name : "荒野"}`, "r");
     }
   } else {
     const p = world.parties.find((x) => x.pid === pend.target);
@@ -598,6 +611,20 @@ function emitEncounter(p) {
   document.getElementById("ovtitle").textContent = "截击";
   document.getElementById("ovtext").textContent =
     `${p.name}截住了镖队！【${full}】` + (site ? `（${site.name}）` : "");
+  pendingKind = "encounter";
+  overlayEl.style.display = "flex";
+}
+
+/* the bureau turns bandit: a caravan or patrol within reach can be prey */
+function offerWaylay(p) {
+  if (busy) return;
+  const scen = WAYLAY_SCEN[p.kind];
+  pendingScen = scen;
+  pendingParty = p;
+  pendingKind = "waylay";
+  document.getElementById("ovtitle").textContent = "劫道";
+  document.getElementById("ovtext").textContent =
+    `伏于道旁，劫${p.name}？官府闻之必怒。【${SCEN_NAME[scen] || scen}】`;
   overlayEl.style.display = "flex";
 }
 
@@ -691,6 +718,9 @@ async function travelTo(destK) {
       i++;
       world.party = pOf(path[i]);
       spot();                                    // scouts watch while marching
+      renderParties();                           // the column walks the grids
+      centerOn(world.party);
+      await sleep(95);
       interceptor = hostileInReach();            // BB: contact stops the column
     }
     if (budget === MOVE_PER_DAY && !interceptor)
@@ -819,13 +849,25 @@ function renderPlaces() {
 }
 
 /* spotted parties at live positions, then the bureau's column on top */
+const WAYLAY_SCEN = { caravan: "jiebiao", patrol: "duijue" };
+const WAYLAY_LOOT = { caravan: 150, patrol: 60 };
+
 function renderParties() {
   partyLayer.innerHTML = "";
   for (const p of world.parties) {
     if (!p.alive || !world.spotted.has(p.pid)) continue;
     const { x, y } = hexToPix(p.pos[0], p.pos[1]);
-    partyLayer.appendChild(svgEl("circle", { cx: x, cy: y, r: 6.5,
-      fill: PARTY_FILL[p.kind], stroke: "#1d1a15", "stroke-width": 1 }));
+    const preyable = !busy && p.kind in WAYLAY_SCEN
+      && hexDist(p.pos, world.party) <= 1;
+    const c = svgEl("circle", { cx: x, cy: y, r: 6.5,
+      fill: PARTY_FILL[p.kind], stroke: preyable ? "#e8c14f" : "#1d1a15",
+      "stroke-width": preyable ? 2 : 1 });
+    if (preyable) {
+      c.setAttribute("pointer-events", "auto");
+      c.style.cursor = "pointer";
+      c.addEventListener("click", () => offerWaylay(p));
+    }
+    partyLayer.appendChild(c);
     const g = svgEl("text", { x, y: y + 2.8, class: "glyph", "font-size": 8 });
     g.textContent = PARTY_GLYPH[p.kind];
     partyLayer.appendChild(g);
@@ -870,7 +912,7 @@ function updateBar() {
     (s0 && s0.fanzhen && (!s0.hidden || world.spotted.has(s0.id)) ? `（${s0.fanzhen}）` : "");
   const tb = document.getElementById("townbtn");
   const post = tradePost();
-  tb.style.display = post && !busy ? "inline-block" : "none";
+  tb.style.display = post && !busy && !drawerOpen ? "inline-block" : "none";
   tb.textContent = drawerOpen ? "出城 ▸" : "入城 ◂";
   if (!post) drawerOpen = false;
   renderCity();
@@ -893,7 +935,8 @@ function renderCity() {
   const price = PROVISION_PRICE[s.kind];
   const need = PROVISIONS_MAX - world.provisions;
   const canBuy = Math.max(0, Math.min(need, Math.floor(world.gold / price)));
-  let html = `<b>${s.name}</b>${s.fanzhen ? `（${s.fanzhen}）` : ""}` +
+  let html = `<button onclick="uiTown()" style="float:right">出城 ▸</button>` +
+             `<b>${s.name}</b>${s.fanzhen ? `（${s.fanzhen}）` : ""}` +
              ` <span style="color:#c9bda0">银两 ${world.gold}</span>`;
   html += `<details data-k="market"${o("market", true)}><summary>市集</summary>` +
           `<div class="leaf">粮草 ${world.provisions}/${PROVISIONS_MAX} · ${price}两/日<br>` +
@@ -1056,7 +1099,7 @@ document.getElementById("restartw").addEventListener("click", () => {
 });
 document.getElementById("ovfight").addEventListener("click", () => {
   if (!pendingScen) return;
-  launchBattle({ kind: "encounter",
+  launchBattle({ kind: pendingKind,
                  target: pendingParty ? pendingParty.pid : null,
                  scenario: pendingScen });
 });

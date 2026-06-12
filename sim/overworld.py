@@ -44,6 +44,8 @@ PROVISION_PRICE = {"city": 2, "town": 2, "village": 3}   # 两 per day of 粮草
 ESCORT_RATE = 40                                          # 两 per road-day
 BOUNTY_PAY = 260                                          # 两 per razed lair
 QUALITY_LADDER = ("fan", "liang", "jing", "zhen", "shen")
+WAYLAY_SCEN = {"caravan": "jiebiao", "patrol": "duijue"}  # the bureau turns bandit
+WAYLAY_LOOT = {"caravan": 150, "patrol": 60}
 SMITH_PRICE = {"liang": 100, "jing": 250, "zhen": 600, "shen": 1500}
 GEAR_SLOTS = ("wpn_q", "wpn2_q", "armor_q", "helmet_q")
 
@@ -448,6 +450,32 @@ def raze(world, lair_id):
         world.emit("contract_done", job=world.contract, pay=world.contract["pay"])
         world.contract = None
     return True
+
+
+def waylay(world, pid):
+    """The bureau turns bandit: ambush a caravan or patrol within reach.
+    Returns the party, or None if it cannot be done. The battle itself and
+    its consequences belong to the caller (plunder on victory)."""
+    p = next((x for x in world.parties if x.pid == pid), None)
+    if (p is None or not p.alive or p.kind not in WAYLAY_SCEN
+            or hex_dist(p.pos, world.party) > 1):
+        return None
+    world.emit("waylay", party=pid, name=p.name, scenario=WAYLAY_SCEN[p.kind])
+    return p
+
+
+def plunder(world, pid):
+    """Victory over a waylaid party: the spoils — and a name that darkens
+    (infamy is the relations hook; consequences land with M2)."""
+    p = next((x for x in world.parties if x.pid == pid), None)
+    if p is None or not p.alive:
+        return 0
+    p.alive = False
+    pay = WAYLAY_LOOT.get(p.kind, 0)
+    world.gold += pay
+    world.emit("plunder", party=pid, name=p.name, pay=pay)
+    world.emit("infamy", reason=f"劫{p.name}")
+    return pay
 
 
 def travel(world, dest):
