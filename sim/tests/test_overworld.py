@@ -383,3 +383,15 @@ def test_waylay_turns_the_bureau_bandit():
     assert any(e["type"] == "infamy" for e in w.events)
     band = next(p for p in w.parties if p.kind == "bandit")
     assert waylay(w, band.pid) is None                  # bandits get encounters, not waylays
+
+
+def test_zhuozhou_sealed_behind_the_juma_crossings():
+    """The 拒马 line holds: dam every crossing and 涿州 is cut off, while
+    瀛莫 sit in open steppe south of the river — as 938 left them."""
+    w = W()
+    for t in w.tiles.values():
+        if t.terrain in ("ford", "bridge"):
+            t.terrain = "water"
+    costs, _ = dijkstra(w, w.party)
+    assert w.settlements["zhuozhou"]["at"] not in costs
+    assert w.settlements["yingzhou"]["at"] in costs

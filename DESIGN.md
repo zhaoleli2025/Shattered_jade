@@ -1,4 +1,4 @@
-# Shattered Jade (碎玉) — Design Document v0.36
+# Shattered Jade (碎玉) — Design Document v0.37
 
 > **Title: Shattered Jade (碎玉)** — final, 2026-06-11. 宁为玉碎，不为瓦全 ("better
 > shattered jade than intact tile"): the permadeath creed in two characters — your
@@ -952,6 +952,20 @@ timelines are how side projects die — hitting month 6 still in M1 is *on pace*
 ---
 
 ## 10. Changelog
+
+**v0.37 (2026-06-12)** — **the verification pass lands** (2-agent adversarial
+review of the geo map + web UI; the road bug and 10 confirmed edges fixed).
+Map: the four road discontinuities healed by redrawing every route chain over
+the current seats (plain gaps paved, water gaps become 渡口); the 西山·紫荆
+massif now actually walls the northwest so 涿州 is sealed behind the 拒马
+crossings while 瀛莫 sit in open steppe as 938 left them (pinned by test);
+滹沱桥 moved to the crossing at 镇州's south gate where 守桥 belongs; 深州/
+武强 pulled out of the riverbed to the north bank; 洺州 to its historical
+广府城 seat; a south-bank road skirts ceded 瀛州; the duplicate 拒马渡 site
+dropped. Web: saved gear is sanitized and seeded on restore (no NaN gold, no
+ghost smith buttons), a fresh battle launch clears any stale verdict and 重开
+clears all three keys, the smith honors its roster flag, and the market button
+says 银两不足/粮草已满 instead of lying numbers. 124 tests green.
 
 **v0.36 (2026-06-12)** — **the road has two sides** (劫道). (1) **Waylaying**:
 caravans and patrols within reach become prey — sim `waylay()/plunder()`

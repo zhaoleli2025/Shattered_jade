@@ -152,7 +152,6 @@ function restoreState() {
   world.provisions = s.provisions;
   world.party = s.party.slice();
   world.gold = s.gold;
-  world.gear = s.gear || seedGear();
   world.contract = s.contract || null;
   rngState = s.rngState >>> 0;
   world.spotted = new Set(s.spotted);
@@ -163,6 +162,14 @@ function restoreState() {
     if (p) { p.pos = sp.pos.slice(); p.leg = sp.leg; p.alive = sp.alive; }
   }
   pendingBattle = s.pending || null;
+  const seeded = seedGear();                 // every hero present, grades legal
+  for (const uid of Object.keys(seeded)) {
+    const sv = (s.gear || {})[uid] || {};
+    for (const slot of GEAR_SLOTS) {
+      if (QUALITY_LADDER.indexOf(sv[slot]) > 0) seeded[uid][slot] = sv[slot];
+    }
+  }
+  world.gear = seeded;
   return true;
 }
 
@@ -673,6 +680,7 @@ function doAssault() {
 let frameVerdict = null;
 function launchBattle(pend) {
   pendingBattle = pend;
+  try { localStorage.removeItem("sj_battle_result"); } catch (e) {}  // no stale verdicts
   saveState();
   if (typeof EMBEDDED_BATTLE !== "undefined") {
     frameVerdict = null;
@@ -940,7 +948,9 @@ function renderCity() {
              ` <span style="color:#c9bda0">银两 ${world.gold}</span>`;
   html += `<details data-k="market"${o("market", true)}><summary>市集</summary>` +
           `<div class="leaf">粮草 ${world.provisions}/${PROVISIONS_MAX} · ${price}两/日<br>` +
-          `<button onclick="uiBuy()" ${canBuy ? "" : "disabled"}>买粮${canBuy || need}日 · ${(canBuy || need) * price}两</button></div></details>`;
+          `<button onclick="uiBuy()" ${canBuy ? "" : "disabled"}>` +
+          (canBuy ? `买粮${canBuy}日 · ${canBuy * price}两`
+                  : need ? "银两不足" : "粮草已满") + `</button></div></details>`;
   html += `<details data-k="jobs"${o("jobs", true)}><summary>镖单</summary>`;
   const board = cityJobs();
   if (!board.length) html += `<div class="leaf">暂无镖单</div>`;
@@ -953,6 +963,7 @@ function renderCity() {
   if (s.kind === "city") {
     html += `<details data-k="smith"${o("smith", false)}><summary>铁匠铺</summary>`;
     for (const hero of HEROES) {
+      if (!hero.smith) continue;             // militia stay off the anvil
       const g = world.gear[hero.id] || {};
       html += `<details data-k="smith-${hero.id}"${o("smith-" + hero.id, false)}>` +
               `<summary>${hero.name}</summary><div class="leaf">`;
@@ -1094,7 +1105,11 @@ document.getElementById("campbtn").addEventListener("click", doCamp);
 document.getElementById("townbtn").addEventListener("click", window.uiTown);
 document.getElementById("assault").addEventListener("click", doAssault);
 document.getElementById("restartw").addEventListener("click", () => {
-  try { localStorage.removeItem(STORE()); } catch (e) {}
+  try {
+    localStorage.removeItem(STORE());
+    localStorage.removeItem("sj_battle_result");
+    localStorage.removeItem("sj_gear");
+  } catch (e) {}
   location.reload();
 });
 document.getElementById("ovfight").addEventListener("click", () => {
