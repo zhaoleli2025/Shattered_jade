@@ -30,7 +30,8 @@ class NoCacheHandler(http.server.SimpleHTTPRequestHandler):
         if self.path == "/":              # the game IS the map — land on it
             self.send_response(302)
             self.send_header("Location", "/world.html")
-            self.end_headers()
+            self.send_header("Content-Length", "0")   # no body — say so, or
+            self.end_headers()                         # keep-alive proxies hang
             return
         super().do_GET()
 
