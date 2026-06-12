@@ -21,9 +21,17 @@ Khitan invasion. Every blade has a name; permadeath is permanent: 宁为玉碎�
 
 ## Play the prototype
 
+**The easy way (no server at all)**: download `releases/shattered_jade_full_vX.Y.html`
+— ONE file with the map and the battle engine inside. Double-click it anywhere;
+battles open in-page and their outcome lands back on the map. This is the
+stable edition; nothing to forward, nothing to refresh.
+
+For development, the no-cache server (default port **8765** — if busy it takes
+the next free port and prints it; forward EXACTLY the printed port in VS Code):
+
 ```bash
-python3 tools/serve.py            # dev server, Cache-Control: no-store —
-# open http://<host>:8023/        # every refresh is fresh, no cache roulette
+python3 tools/serve.py            # → http://localhost:8765/  (battles)
+                                  # → http://localhost:8765/world.html  (the map)
 ```
 
 For a **stable edition**, don't play the dev tree — cut a release:

@@ -840,15 +840,28 @@ function checkEnd() {
     const ov = document.getElementById("overlay");
     if (CAMPAIGN) {
       // the verdict flows back to the map: razed lairs, broken bands, retreats
+      const verdict = { scenario: scenario.id, winner: e === 0 ? "player" : "enemy" };
       try {
-        localStorage.setItem("sj_battle_result", JSON.stringify(
-          { scenario: scenario.id, winner: e === 0 ? "player" : "enemy" }));
+        if (window.parent !== window && window.parent.__sjBattleVerdict) {
+          window.parent.__sjBattleVerdict(verdict);   // one-file edition: direct
+        }
+      } catch (err) { /* cross-origin frame — fall through to storage */ }
+      try {
+        localStorage.setItem("sj_battle_result", JSON.stringify(verdict));
       } catch (err) { /* file:// storage may be unavailable */ }
       if (!document.getElementById("backworld")) {
         const back = document.createElement("button");
         back.id = "backworld";
         back.textContent = "回到舆图";
-        back.addEventListener("click", () => { location.href = "world.html"; });
+        back.addEventListener("click", () => {
+          try {
+            if (window.parent !== window && window.parent.__sjCloseBattle) {
+              window.parent.__sjCloseBattle();
+              return;
+            }
+          } catch (err) { /* not in the frame */ }
+          location.href = "world.html";
+        });
         ov.appendChild(back);
       }
     }
@@ -1316,8 +1329,12 @@ async function boot() {
   logEl = document.getElementById("log");
   boardEl = document.getElementById("board");
   const params = new URLSearchParams(location.search);
-  const scenId = params.get("scenario") || "jiebiao";
-  CAMPAIGN = params.get("campaign") === "1";
+  const scenId = params.get("scenario") || window.__SJ_SCEN || "jiebiao";
+  CAMPAIGN = params.get("campaign") === "1" || window.__SJ_CAMPAIGN === 1;
+  if (window.__SJ_CAMPAIGN) {
+    const sp = document.getElementById("scenpick");
+    if (sp) sp.disabled = true;   // in the battle frame, the map picks the fight
+  }
   try {
     const res = await fetch(`scenarios/${scenId}.json`, { cache: "no-store" });
     if (!res.ok) throw new Error("HTTP " + res.status);

@@ -1,4 +1,4 @@
-# Shattered Jade (碎玉) — Design Document v0.31
+# Shattered Jade (碎玉) — Design Document v0.32
 
 > **Title: Shattered Jade (碎玉)** — final, 2026-06-11. 宁为玉碎，不为瓦全 ("better
 > shattered jade than intact tile"): the permadeath creed in two characters — your
@@ -952,6 +952,21 @@ timelines are how side projects die — hitting month 6 still in M1 is *on pace*
 ---
 
 ## 10. Changelog
+
+**v0.32 (2026-06-12)** — **the one-file game + a server that can't betray you**
+(fixing the "localhost:8765 won't open" workflow for good). (1) **The FULL
+edition**: `releases/shattered_jade_full_vX.html` embeds the entire battle
+edition inside the world edition; battles open in-page in a same-origin
+srcdoc iframe and the verdict returns by direct callback — **no server, no
+port forwarding, no cross-file links, no localStorage dependence**. Download
+one file, double-click, play the whole campaign loop offline. The two-file
+and battle-only editions are still cut alongside. (2) **serve.py un-footgunned**:
+default port back to 8765 (the muscle-memory port — the old 8023 default
+silently mismatched the user's VS Code forward, which is exactly the
+"always fails to open" symptom), SO_REUSEADDR so a freshly killed server
+can't hold the port, automatic next-free-port fallback with the chosen port
+printed loudly, and step-by-step forward instructions in the banner.
+116 tests green.
 
 **v0.31 (2026-06-12)** — **the campaign loop closes + a deterministic web world**
 (fixing v0.30's two named gaps). (1) **Battle results flow back into the map**:

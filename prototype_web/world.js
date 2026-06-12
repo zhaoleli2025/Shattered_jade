@@ -131,13 +131,14 @@ function retreatToFriendly() {
   return best;
 }
 
-/* the loop closes: what happened on the battle page lands on the map */
-function applyBattleResult() {
+/* the loop closes: what happened on the battle page lands on the map.
+   resOverride comes straight from the in-page battle frame (no storage). */
+function applyBattleResult(resOverride) {
   const pend = pendingBattle;
   if (!pend) return;
   pendingBattle = null;
-  let res = null;
-  try { res = JSON.parse(localStorage.getItem("sj_battle_result") || "null"); } catch (e) {}
+  let res = resOverride || null;
+  if (!res) { try { res = JSON.parse(localStorage.getItem("sj_battle_result") || "null"); } catch (e) {} }
   if (!res || res.scenario !== pend.scenario) return;   // battle never fought
   try { localStorage.removeItem("sj_battle_result"); } catch (e) {}
   const win = res.winner === "player";
@@ -421,10 +422,39 @@ function doAssault() {
   const lair = settlementAt(world.party);
   if (busy || !lair || lair.kind !== "stronghold" || world.destroyed.has(lair.id)) return;
   const scen = lair.scenario || "gongzhai";
-  pendingBattle = { kind: "assault", target: lair.id, scenario: scen };
-  saveState();
-  location.href = "index.html?scenario=" + scen + "&campaign=1";
+  launchBattle({ kind: "assault", target: lair.id, scenario: scen });
 }
+
+/* one-file edition: the battle engine rides inside and fights in an iframe —
+   no server, no navigation, the verdict returns by direct callback */
+let frameVerdict = null;
+function launchBattle(pend) {
+  pendingBattle = pend;
+  saveState();
+  if (typeof EMBEDDED_BATTLE !== "undefined") {
+    frameVerdict = null;
+    overlayEl.style.display = "none";
+    const wrap = document.createElement("div");
+    wrap.id = "battleframe";
+    wrap.style.cssText = "position:fixed;inset:0;z-index:50;background:#1d1a15;";
+    const f = document.createElement("iframe");
+    f.style.cssText = "width:100%;height:100%;border:0;";
+    const inject = `<script>window.__SJ_SCEN=${JSON.stringify(pend.scenario)};window.__SJ_CAMPAIGN=1;<\/script>`;
+    f.srcdoc = EMBEDDED_BATTLE.replace("<script>", inject + "<script>");
+    wrap.appendChild(f);
+    document.body.appendChild(wrap);
+  } else {
+    location.href = "index.html?scenario=" + pend.scenario + "&campaign=1";
+  }
+}
+window.__sjBattleVerdict = (res) => { frameVerdict = res; };
+window.__sjCloseBattle = () => {
+  const w = document.getElementById("battleframe");
+  if (w) w.remove();
+  applyBattleResult(frameVerdict);
+  frameVerdict = null;
+  refresh();
+};
 
 /* march day by day toward a hex; a hostile within reach — at departure or on
    any step — halts the column (sim/overworld.py travel(), animated per day) */
@@ -709,11 +739,9 @@ document.getElementById("restartw").addEventListener("click", () => {
 });
 document.getElementById("ovfight").addEventListener("click", () => {
   if (!pendingScen) return;
-  pendingBattle = { kind: "encounter",
-                    target: pendingParty ? pendingParty.pid : null,
-                    scenario: pendingScen };
-  saveState();
-  location.href = "index.html?scenario=" + pendingScen + "&campaign=1";
+  launchBattle({ kind: "encounter",
+                 target: pendingParty ? pendingParty.pid : null,
+                 scenario: pendingScen });
 });
 document.getElementById("ovflee").addEventListener("click", () => {
   overlayEl.style.display = "none";
