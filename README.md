@@ -34,6 +34,17 @@ python3 tools/serve.py            # → http://localhost:8765/  (battles)
                                   # → http://localhost:8765/world.html  (the map)
 ```
 
+**Public URL (cpolar)** — same format as the other games, no VS Code forwarding:
+
+```bash
+/data/zhaoleli/opt/cpolar/cpolar authtoken <token>   # once (dashboard.cpolar.com)
+bash tools/tunnel.sh        # → prints https://xxxx.xx.cpolar.io  (/ and /world.html)
+bash tools/tunnel.sh stop
+```
+
+Free-tier subdomains rotate on each restart — rerun the script to get the
+fresh URL. Anyone holding the link can play (the repo is public anyway).
+
 For a **stable edition**, don't play the dev tree — cut a release:
 
 ```bash
