@@ -42,6 +42,10 @@ class NoCacheHandler(http.server.SimpleHTTPRequestHandler):
 
 class Server(http.server.ThreadingHTTPServer):
     allow_reuse_address = True   # a freshly killed server can't hold the port
+    request_queue_size = 64      # browsers burst 6+ parallel requests through
+                                 # the VS Code forward; the default backlog of 5
+                                 # drops the rest — the "unstable" feeling
+    daemon_threads = True        # a hung client thread can't pin the process
 
 
 if __name__ == "__main__":

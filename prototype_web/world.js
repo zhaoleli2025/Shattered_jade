@@ -965,7 +965,8 @@ function renderCity() {
   const open = new Set([...el.querySelectorAll("details[open]")].map((d) => d.dataset.k));
   if (!el.innerHTML) { open.add("market"); open.add("jobs"); }   // first opening
   const o = (k, dflt) => (el.innerHTML ? open.has(k) : dflt) ? " open" : "";
-  const price = PROVISION_PRICE[s.kind];
+  let price = PROVISION_PRICE[s.kind];
+  if (world.infamy >= INFAMY_PRICED) price += (price + 1) >> 1;  // shown as charged
   const need = PROVISIONS_MAX - world.provisions;
   const canBuy = Math.max(0, Math.min(need, Math.floor(world.gold / price)));
   let html = `<button onclick="uiTown()" style="float:right">出城 ▸</button>` +
