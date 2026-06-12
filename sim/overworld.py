@@ -28,7 +28,7 @@ SCENARIO_DIR = os.path.join(os.path.dirname(__file__), "..", "scenarios")
 
 MOVE_PER_DAY = 8     # 官道 ~8 hexes/day, open country ~4 — a hex ≈ half a 驿程
 SIGHT = 3            # hexes; +1 ending the day on hills (BB: terrain sets sight)
-PROVISIONS_MAX = 12  # days of supplies; refilled overnight in friendly settlements
+# provisions are now units, not days; the cap rides on the roster (see capacity)
 
 COST = {"road": 1, "bridge": 1, "settlement": 1, "plain": 2, "ford": 2,
         "hills": 3, "forest": 3, "marsh": 4, "water": None, "mountains": None}
@@ -40,7 +40,15 @@ FRIENDLY_KINDS = {"city", "town", "village"}   # where the bureau can trade
 
 # ---- the silver economy (M2): markets, escort contracts, the smith ----
 GOLD_START = 100
-PROVISION_PRICE = {"city": 2, "town": 2, "village": 3}   # 两 per day of 粮草
+# ---- the roster: each rider is a mule AND a mouth (BB upkeep) ----
+CORE_ROSTER = ["wang", "liu", "shi", "yan"]   # the bureau's founding hands
+PROVISION_BASE = 4         # the cart hauls this much even empty
+CARRY_PER_HEAD = 2         # each rider shoulders this many 粮草
+EAT_PER_HEAD = 1           # ...and eats this much a day
+WAGE_PER_HEAD = 2          # 两/day, paid at dawn — the BB upkeep drain
+HIRE_FEE = {"乡勇": 40, "刀手": 90, "弓手": 110}   # one-time, by recruit kind
+RECRUIT_KINDS = {"乡勇": dict(wage=2), "刀手": dict(wage=4), "弓手": dict(wage=5)}
+PROVISION_PRICE = {"city": 2, "town": 2, "village": 3}   # 两 per unit of 粮草
 ESCORT_RATE = 40                                          # 两 per road-day
 BOUNTY_PAY = 260                                          # 两 per razed lair
 QUALITY_LADDER = ("fan", "liang", "jing", "zhen", "shen")
@@ -92,7 +100,7 @@ class WorldState:
     rng: Streams
     party: tuple
     day: int = 1
-    provisions: int = PROVISIONS_MAX
+    provisions: int = PROVISION_BASE + CARRY_PER_HEAD * len(CORE_ROSTER)
     parties: list = field(default_factory=list)
     sites: dict = field(default_factory=dict)   # anchored set-pieces (虎牢关...)
     exits: dict = field(default_factory=dict)   # border hexes to neighbor regions
@@ -100,6 +108,21 @@ class WorldState:
     destroyed: set = field(default_factory=set) # razed lairs
     gold: int = GOLD_START                      # 银两
     infamy: int = 0                             # 恶名 — the yamen remembers
+    roster: list = field(default_factory=lambda: list(CORE_ROSTER))
+    members: list = field(default_factory=list)  # hired hands: {name, kind, wage}
+
+    def headcount(self):
+        return len(self.roster) + len(self.members)
+
+    def capacity(self):
+        return PROVISION_BASE + CARRY_PER_HEAD * self.headcount()
+
+    def daily_food(self):
+        return EAT_PER_HEAD * self.headcount()
+
+    def daily_wage(self):
+        return (WAGE_PER_HEAD * len(self.roster)
+                + sum(m["wage"] for m in self.members))
     gear: dict = field(default_factory=dict)    # hero id -> quality slots
     contract: dict | None = None                # one active job (BB rule)
     events: list = field(default_factory=list)
@@ -185,6 +208,7 @@ def load_world(world_id, seed=0):
     # the heroes ride out with their template gear; the smith improves on it
     world.gear = {tpl["id"]: {k: tpl[k] for k in GEAR_SLOTS if tpl.get(k)}
                   for tpl in data.ROSTER if tpl["side"] == "player"}
+    world.provisions = world.capacity()   # ride out with full packs
     _spot(world)  # what the bureau can see from the gate on day one
     return world
 
@@ -312,10 +336,18 @@ def _hostile_in_reach(world):
 
 
 def _burn_ration(world):
-    world.provisions -= 1
+    """A day's march: the whole company eats, and at dawn it is paid."""
+    world.provisions -= world.daily_food()
     if world.provisions <= 0:
         world.provisions = 0
         world.emit("starving")
+    wage = world.daily_wage()
+    world.gold -= wage
+    if world.gold < 0:
+        world.gold = 0
+        world.emit("unpaid", owed=wage)
+    elif wage:
+        world.emit("wages", paid=wage)
 
 
 def _trade_post(world):
@@ -335,7 +367,7 @@ def market_buy(world, days=None):
     price = PROVISION_PRICE[s["kind"]]
     if world.infamy >= INFAMY_PRICED:
         price = price + (price + 1) // 2      # outlaws pay gouged prices
-    need = PROVISIONS_MAX - world.provisions
+    need = world.capacity() - world.provisions
     if days is not None:
         need = min(need, days)
     n = max(0, min(need, world.gold // price))
@@ -435,6 +467,45 @@ def smith_repair(world, uid):
     g.pop("wpn2_dura", None)
     world.emit("repaired", hero=uid, cost=bill)
     return bill
+
+
+def recruits_here(world):
+    """What a settlement offers: villages give 乡勇, towns add 刀手, cities all
+    three (bigger places, better hands — BB attached-location flavor)."""
+    s = _trade_post(world)
+    if not s:
+        return []
+    by_kind = {"village": ["乡勇"], "town": ["乡勇", "刀手"],
+               "city": ["乡勇", "刀手", "弓手"]}[s["kind"]]
+    return [dict(kind=k, fee=HIRE_FEE[k], wage=RECRUIT_KINDS[k]["wage"])
+            for k in by_kind]
+
+
+def hire(world, kind):
+    """招募: take on a hand — a one-time fee, then a daily wage forever."""
+    if kind not in RECRUIT_KINDS or not _trade_post(world):
+        return False
+    if kind not in [r["kind"] for r in recruits_here(world)]:
+        return False
+    fee = HIRE_FEE[kind]
+    if world.gold < fee:
+        return False
+    world.gold -= fee
+    n = sum(1 for m in world.members if m["kind"] == kind) + 1
+    name = f"{kind}·{'甲乙丙丁戊己庚辛壬癸'[(n - 1) % 10]}"
+    world.members.append(dict(name=name, kind=kind, wage=RECRUIT_KINDS[kind]["wage"]))
+    world.emit("hired", name=name, kind=kind, fee=fee)
+    return True
+
+
+def dismiss(world, index):
+    """遣散: let a hired hand go (the founding core cannot be dismissed)."""
+    if not (0 <= index < len(world.members)):
+        return False
+    m = world.members.pop(index)
+    world.provisions = min(world.provisions, world.capacity())  # fewer packs
+    world.emit("dismissed", name=m["name"])
+    return True
 
 
 def smith_upgrade(world, uid, slot):

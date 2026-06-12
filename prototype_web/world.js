@@ -45,7 +45,16 @@ const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
 /* ---------------- overworld rules (mirrors sim/overworld.py) ---------------- */
 const MOVE_PER_DAY = 8;     // 官道 ~8 hexes/day, open country ~4
 const SIGHT = 3;            // hexes; +1 ending a step on hills
-const PROVISIONS_MAX = 12;  // days of supplies; the market feeds the column — no free refill
+// provisions are units now; the cap rides on the roster (see capacity)
+const CORE_ROSTER = ["wang", "liu", "shi", "yan"];
+const PROVISION_BASE = 4, CARRY_PER_HEAD = 2, EAT_PER_HEAD = 1, WAGE_PER_HEAD = 2;
+const HIRE_FEE = { "乡勇": 40, "刀手": 90, "弓手": 110 };
+const RECRUIT_WAGE = { "乡勇": 2, "刀手": 4, "弓手": 5 };
+const RECRUIT_TIERS = { village: ["乡勇"], town: ["乡勇", "刀手"], city: ["乡勇", "刀手", "弓手"] };
+function headcount() { return CORE_ROSTER.length + world.members.length; }
+function capacity() { return PROVISION_BASE + CARRY_PER_HEAD * headcount(); }
+function dailyFood() { return EAT_PER_HEAD * headcount(); }
+function dailyWage() { return WAGE_PER_HEAD * CORE_ROSTER.length + world.members.reduce((s, m) => s + m.wage, 0); }
 
 /* ---- the silver economy (M2, mirrors sim/overworld.py): markets, escorts, the smith ---- */
 const GOLD_START = 100;
@@ -138,7 +147,7 @@ function saveState() {
   try {
     localStorage.setItem(STORE(), JSON.stringify({
       v: 2, day: world.day, provisions: world.provisions, party: world.party,
-      infamy: world.infamy, gold2: true,
+      infamy: world.infamy, members: world.members, gold2: true,
       gold: world.gold, gear: world.gear, contract: world.contract,
       rngState, spotted: [...world.spotted], destroyed: [...world.destroyed],
       parties: world.parties.map((p) => ({ pid: p.pid, pos: p.pos, leg: p.leg, alive: p.alive })),
@@ -154,6 +163,8 @@ function restoreState() {
   world.day = s.day;
   world.provisions = s.provisions;
   world.infamy = s.infamy || 0;
+  world.members = Array.isArray(s.members) ? s.members.filter(
+    (m) => m && RECRUIT_WAGE[m.kind]) : [];
   world.party = s.party.slice();
   world.gold = s.gold;
   world.contract = s.contract || null;
@@ -535,11 +546,14 @@ function hostileInReach() {
 }
 
 function burnRation() {
-  world.provisions -= 1;
+  world.provisions -= dailyFood();
   if (world.provisions <= 0) {
     world.provisions = 0;
     log(`第${world.day}日 · 粮草告罄，人马饥疲`, "r");
   }
+  const wage = dailyWage();
+  world.gold -= wage;
+  if (world.gold < 0) { world.gold = 0; log(`第${world.day}日 · 饷银无着，军心浮动`, "r"); }
 }
 
 /* ---------------- the silver economy (mirrors sim/overworld.py exactly) ---------------- */
@@ -557,7 +571,7 @@ function marketBuy() {
   if (!s) return 0;
   let price = PROVISION_PRICE[s.kind];
   if (world.infamy >= INFAMY_PRICED) price += (price + 1) >> 1;  // outlaws pay more
-  const need = PROVISIONS_MAX - world.provisions;
+  const need = capacity() - world.provisions;
   const n = Math.max(0, Math.min(need, Math.floor(world.gold / price)));
   if (n) {
     world.provisions += n;
@@ -952,7 +966,8 @@ const locName = (pos) => destName(key(pos[0], pos[1]));
 
 function updateBar() {
   document.getElementById("daylabel").textContent = `第 ${world.day} 日`;
-  document.getElementById("provlabel").textContent = `粮草 ${world.provisions}/${PROVISIONS_MAX}`;
+  document.getElementById("provlabel").textContent =
+    `粮草 ${world.provisions}/${capacity()} · ${headcount()}人(耗${dailyFood()}·饷${dailyWage()})`;
   document.getElementById("goldlabel").textContent = `银两 ${world.gold}`;
   document.getElementById("contractlabel").textContent =
     (world.contract ? `镖单·${world.contract.name}` : "") +
@@ -990,7 +1005,7 @@ function renderCity() {
              `<b>${s.name}</b>${s.fanzhen ? `（${s.fanzhen}）` : ""}` +
              ` <span style="color:#c9bda0">银两 ${world.gold}</span>`;
   html += `<details data-k="market"${o("market", true)}><summary>市集</summary>` +
-          `<div class="leaf">粮草 ${world.provisions}/${PROVISIONS_MAX} · ${price}两/日<br>` +
+          `<div class="leaf">粮草 ${world.provisions}/${capacity()} · ${price}两/份<br>` +
           `<button onclick="uiBuy()" ${canBuy ? "" : "disabled"}>` +
           (canBuy ? `买粮${canBuy}日 · ${canBuy * price}两`
                   : need ? "银两不足" : "粮草已满") + `</button></div></details>`;
@@ -1003,6 +1018,21 @@ function renderCity() {
   });
   if (world.contract) html += `<div class="leaf" style="color:#c9bda0">在身：${world.contract.name}</div>`;
   html += `</details>`;
+  // 招募: muster hands here (BB: bigger places, better recruits)
+  {
+    const tiers = RECRUIT_TIERS[s.kind] || [];
+    let rrows = "";
+    for (const k of tiers) {
+      const fee = HIRE_FEE[k];
+      rrows += `<div class="job"><span>${k} · 雇金${fee} 日饷${RECRUIT_WAGE[k]}</span>` +
+               `<button onclick="uiHire('${k}')" ${world.gold < fee ? "disabled" : ""}>招募</button></div>`;
+    }
+    world.members.forEach((m, i) => {
+      rrows += `<div class="job leaf"><span>${m.name}（饷${m.wage}）</span>` +
+               `<button onclick="uiFire(${i})">遣散</button></div>`;
+    });
+    html += `<details data-k="recruit"${o("recruit", false)}><summary>招募 · ${headcount()}人</summary>${rrows}</details>`;
+  }
   if (s.kind === "city" || s.kind === "town") {
     let rows = "";
     for (const h of HEROES) {
@@ -1064,6 +1094,24 @@ window.uiAtone = () => {
 };
 window.uiTake = (i) => { const jb = cityJobs()[i]; if (jb) takeJob(jb); refresh(); };
 window.uiSmith = (uid, slot) => { smithUpgrade(uid, slot); refresh(); };
+window.uiHire = (kind) => {
+  const fee = HIRE_FEE[kind];
+  if (world.gold < fee || !RECRUIT_TIERS[(tradePost() || {}).kind || ""].includes(kind)) return;
+  world.gold -= fee;
+  const n = world.members.filter((m) => m.kind === kind).length + 1;
+  const name = kind + "·" + "甲乙丙丁戊己庚辛壬癸"[(n - 1) % 10];
+  world.members.push({ name, kind, wage: RECRUIT_WAGE[kind] });
+  log(`第${world.day}日 · 招得${name}入伙（雇金${fee}两）`, "b");
+  refresh();
+};
+window.uiFire = (i) => {
+  if (i >= 0 && i < world.members.length) {
+    const m = world.members.splice(i, 1)[0];
+    world.provisions = Math.min(world.provisions, capacity());
+    log(`第${world.day}日 · 遣散${m.name}`, "sys");
+  }
+  refresh();
+};
 window.uiMend = (uid) => {
   const h = HEROES.find((x) => x.id === uid);
   const g = world.gear[uid] || {};
@@ -1186,6 +1234,7 @@ async function boot() {
   } else {
     log(`镖局总号驻${settlements.get(spec.start).name}。点击舆图任意可达之处即出发；遇匪遇骑，开战或脱离悉听尊便。`, "sys");
   }
+  if (!resumed) world.provisions = capacity();   // ride out with full packs
   spot();   // what the bureau can see from the gate on day one
   refresh();
 }

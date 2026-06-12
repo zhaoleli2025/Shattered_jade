@@ -1,4 +1,4 @@
-# Shattered Jade (碎玉) — Design Document v0.39
+# Shattered Jade (碎玉) — Design Document v0.40
 
 > **Title: Shattered Jade (碎玉)** — final, 2026-06-11. 宁为玉碎，不为瓦全 ("better
 > shattered jade than intact tile"): the permadeath creed in two characters — your
@@ -964,6 +964,23 @@ timelines are how side projects die — hitting month 6 still in M1 is *on pace*
 ---
 
 ## 10. Changelog
+
+**v0.40 (2026-06-12)** — **the roster economy: every rider a mule and a mouth**
+(user-specced: each member adds 粮草 capacity AND consumption + a daily wage;
+recruit/dismiss at settlements; battle presence is the next stage). (1) **粮草
+scales with the company**: provisions are units now, not flat days — capacity =
+4 + 2×headcount (each rider shoulders rations), the company eats 1×headcount a
+day, so a bigger band carries more total yet burns it faster and pays more at
+market. (2) **Daily wages** drain silver at dawn (核心 2两/head, hired hands by
+kind) — the BB upkeep that makes contracts and 劫道 matter; an empty purse fires
+an `unpaid` event (morale teeth land with the injury stage). (3) **招募**:
+villages muster 乡勇 (雇金40/饷2), towns add 刀手 (90/4), cities all three plus
+弓手 (110/5) — one-time fee then a wage forever; 遣散 lets them go. Sim
+(headcount/capacity/daily_food/daily_wage/hire/dismiss/recruits_here),
+terminal (roster/enlist/hire/fire), and web (招募 drawer folder, HUD
+人/耗/饷 readout) all mirrored. NOTE: recruits march, eat, and cost, but battle
+rosters stay the fixed set-pieces for now — who-deploys is the explicit next
+stage. 134 tests green.
 
 **v0.39 (2026-06-12)** — **steel remembers: BB durability, stages A+B** (user
 sign-off: 卷刃 at zero, full in-battle wear + campaign persistence; stage C —

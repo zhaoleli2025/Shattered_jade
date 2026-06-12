@@ -123,22 +123,23 @@ def test_hidden_lair_revealed_by_proximity():
 
 
 def test_provisions_burn_and_the_market_feeds():
-    from sim.overworld import PROVISIONS_MAX, camp, market_buy
+    from sim.overworld import camp, market_buy
     from sim.hexmath import hex_dist
     w = W()
     w.party = next(k for k, tl in sorted(w.tiles.items())   # open country, no gates
                    if tl.terrain == "plain"
                    and all(hex_dist(k, s["at"]) > 3 for s in w.settlements.values()))
-    for _ in range(PROVISIONS_MAX + 2):
+    for _ in range(w.capacity() + 2):
         camp(w)
     assert w.provisions == 0
     assert any(e["type"] == "starving" for e in w.events)
     assert market_buy(w) == 0                           # no gates, no grain
     travel(w, "zhaozhou")
     assert w.provisions == 0                            # arrival alone feeds no one
-    gold0 = w.gold
+    w.gold = 100                                        # wages emptied the purse
+    cap, gold0 = w.capacity(), w.gold
     n = market_buy(w)                                   # 市集: silver for grain
-    assert n == PROVISIONS_MAX and w.provisions == PROVISIONS_MAX
+    assert n == cap and w.provisions == cap
     assert w.gold == gold0 - n * 2
 
 
@@ -260,8 +261,9 @@ def test_no_market_in_occupied_towns():
     w.party = w.settlements["mozhou"]["at"]             # 辽营 feeds no one
     w.provisions = 5
     assert market_buy(w) == 0
+    food0 = w.daily_food()
     camp(w)
-    assert w.provisions == 4
+    assert w.provisions == 5 - food0
 
 
 def test_departure_beside_a_hostile_is_an_encounter():
@@ -322,7 +324,7 @@ def test_escort_contract_pays_on_arrival():
     gold0 = w.gold
     travel(w, escort["to"])
     if w.at_settlement() and w.at_settlement()["id"] == escort["to"]:
-        assert w.gold == gold0 + escort["pay"]
+        assert w.gold > gold0                           # paid, net of the day's wages
         assert w.contract is None
         assert any(e["type"] == "contract_done" for e in w.events)
 
@@ -412,7 +414,7 @@ def test_infamy_gouges_thins_then_hunts():
     assert len([j for j in jobs(w) if j["kind"] == "escort"]) == 1   # board thins
     w.provisions, gold0 = 0, w.gold
     assert market_buy(w, days=2) == 2
-    assert gold0 - w.gold == 2 * 3                  # city price 2 → gouged 3
+    assert gold0 - w.gold == 2 * 3                  # city price 2 → gouged 3 (no wage tick here)
     pat = next(p for p in w.parties if p.kind == "patrol")
     pat.pos = nk()
     waylay(w, pat.pid); plunder(w, pat.pid)
@@ -470,3 +472,47 @@ def test_repairs_in_towns_but_not_villages():
     assert smith_repair(w, "wang") == 0
     w.party = w.settlements["dingzhou"]["at"]   # a town does
     assert smith_repair(w, "wang") > 0
+
+
+def test_roster_carries_eats_and_is_paid():
+    from sim.overworld import camp
+    w = W()
+    assert w.headcount() == 4 and w.capacity() == 12   # base 4 + 2×4
+    assert w.daily_food() == 4 and w.daily_wage() == 8
+    assert w.provisions == 12                           # rode out with full packs
+    gold0, prov0 = w.gold, w.provisions
+    camp(w)
+    assert w.provisions == prov0 - 4                    # the company eats
+    assert w.gold == gold0 - 8                          # the company is paid
+
+
+def test_hire_grows_load_appetite_and_wage():
+    from sim.overworld import dismiss, hire, recruits_here
+    w = W()                                             # at 镇州, a city
+    w.gold = 500
+    kinds = [r["kind"] for r in recruits_here(w)]
+    assert kinds == ["乡勇", "刀手", "弓手"]            # a city musters all three
+    cap0 = w.capacity()
+    assert hire(w, "刀手") is True
+    assert w.headcount() == 5 and w.capacity() == cap0 + 2
+    assert w.daily_food() == 5 and w.daily_wage() == 8 + 4
+    assert w.members[0]["name"] == "刀手·甲"
+    assert dismiss(w, 0) is True                        # let him go
+    assert w.headcount() == 4 and w.daily_wage() == 8
+
+
+def test_villages_muster_only_militia():
+    from sim.overworld import hire, recruits_here
+    w = W()
+    w.gold = 500
+    w.party = w.settlements["wangdu"]["at"]             # a village
+    assert [r["kind"] for r in recruits_here(w)] == ["乡勇"]
+    assert hire(w, "弓手") is False                     # no archers in a hamlet
+
+
+def test_unpaid_when_the_purse_runs_dry():
+    from sim.overworld import camp
+    w = W()
+    w.gold = 3                                          # not enough for one day
+    camp(w)
+    assert w.gold == 0 and any(e["type"] == "unpaid" for e in w.events)

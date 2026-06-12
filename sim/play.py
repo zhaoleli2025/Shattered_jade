@@ -17,10 +17,10 @@ from .ai import ai_turn
 from .commands import Stance, Strike, Swap, resolve, targets_of
 from .engine import run_battle
 from .hexmath import hex_dist
-from .overworld import (atone, battle_wear, camp, fail_contract, jobs,
-                        load_world, market_buy, plunder, raze, repair_bill,
-                        smith_repair, smith_upgrade, take_job, travel, waylay,
-                        dijkstra as wdijkstra, render as wrender)
+from .overworld import (atone, battle_wear, camp, dismiss, fail_contract, hire,
+                        jobs, load_world, market_buy, plunder, raze, recruits_here,
+                        repair_bill, smith_repair, smith_upgrade, take_job,
+                        travel, waylay, dijkstra as wdijkstra, render as wrender)
 from .pathfind import dijkstra
 from .rules import hit_breakdown
 from .state import load_scenario
@@ -165,6 +165,8 @@ WORLD_HELP = """\
   go 地名/id   前往（如: go 定州 / go dingzhou）   go C R  前往 列C 行R
   camp     扎营一日       assault   攻打脚下贼寨
   buy      市集买粮(补满)  jobs      看镖单
+  roster   看队伍名册      enlist    看可招之人
+  hire 种类  招募(乡勇/刀手/弓手)   fire N    遣散第 N 名雇员
   take N   接第 N 单      smith 人 部位   铁匠铺升品 (如: smith wang wpn_q)
   mend 人   修缮甲械（大城/州镇铁铺；如: mend wang）
   map      重看舆图       who       已发现的队伍
@@ -180,7 +182,8 @@ def world_status(w):
     fan = f"（{s['fanzhen']}）" if s and s.get("fanzhen") else ""
     job = f" · 镖单:{w.contract['name']}" if w.contract else ""
     job += f" · 恶名{w.infamy}" if w.infamy else ""
-    say(f"\n—— 第{w.day}日 · 银{w.gold}两 · 粮草{w.provisions} · "
+    say(f"\n—— 第{w.day}日 · 银{w.gold}两 · 粮草{w.provisions}/{w.capacity()} · "
+        f"{w.headcount()}人(日耗粮{w.daily_food()}·饷{w.daily_wage()}两) · "
         f"{(s['name'] + fan if s else '野外')}{job} ——")
 
 
@@ -284,7 +287,27 @@ def play_campaign(world_id="hebei", seed=0):
                 else "  衙门只在大城，或无恶名/银两不济。")
         elif op == "buy":
             n = market_buy(w)
-            say(f"  市集购粮{n}日。" if n else "  此地无市，或银两不济。")
+            say(f"  市集购粮{n}。" if n else "  此地无市，或银两不济。")
+        elif op == "roster":
+            say(f"  核心 {len(w.roster)} 人：{'、'.join(w.roster)}")
+            for i, m in enumerate(w.members, 1):
+                say(f"  [{i}] {m['name']}（饷{m['wage']}两/日）")
+            if not w.members:
+                say("  尚无雇员。")
+        elif op == "enlist":
+            for r in recruits_here(w):
+                say(f"  {r['kind']}：雇金{r['fee']}两，日饷{r['wage']}两")
+            if not recruits_here(w):
+                say("  此地无人可招。")
+        elif op == "hire" and len(toks) > 1:
+            say(f"  招得{toks[1]}入伙。" if hire(w, toks[1])
+                else "  招不得（此地无此等人，或银两不足）。")
+        elif op == "fire" and len(toks) > 1:
+            try:
+                ok = dismiss(w, int(toks[1]) - 1)
+            except ValueError:
+                ok = False
+            say("  已遣散。" if ok else "  无此雇员。")
         elif op == "jobs":
             board = jobs(w)
             for i, j in enumerate(board, 1):
