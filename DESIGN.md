@@ -1,4 +1,4 @@
-# Shattered Jade (碎玉) — Design Document v0.34
+# Shattered Jade (碎玉) — Design Document v0.35
 
 > **Title: Shattered Jade (碎玉)** — final, 2026-06-11. 宁为玉碎，不为瓦全 ("better
 > shattered jade than intact tile"): the permadeath creed in two characters — your
@@ -952,6 +952,21 @@ timelines are how side projects die — hitting month 6 still in M1 is *on pace*
 ---
 
 ## 10. Changelog
+
+**v0.35 (2026-06-12)** — **河北 from the real map + the town drawer**. (1) The
+pilot region is now **generated from true geography**: every place projected
+from its actual lat/lon onto a 44×40 grid — 镇州(正定) on the 滹沱 north bank
+with the 滹沱桥 at its gates, 定州 a real day up the 太行东麓大道, 魏州(大名)
+four days south past the 漳·卫 line, 沧州 six days east, 涿州 on the frontier;
+**河间 corrected to BE 瀛州** (938 cession — the old map wrongly had both).
+Villages/towns enriched: 洺州·望都·栾城·高邑·安平·武强·南宫·东光·束鹿. Roads
+follow the era's routes (太行东麓大道, 永济渠走廊); river crossings auto-derived
+from road∩river with ford-cluster collapse; coordinate-pinned tests rewritten
+dynamic. (2) **The town drawer**: city functions move into a right-side folder
+tree (入城 button → 城 ▸ 市集 / 镖单 / 铁匠铺 ▸ 各位镖师 ▸ 部位), native
+<details> folders with open-state preserved across refreshes; auto-closes on
+the march. (3) **Zoom controls**: visible ＋/－/⌖ buttons join the wheel zoom
+(anchored at view center; ⌖ recenters on the column). 122 tests green.
 
 **v0.34 (2026-06-12)** — **the 藩镇 economy on a bigger 河北** (built in stages
 with user sign-off: paid food ✓, light defeat cost ✓, numbers as proposed ✓).

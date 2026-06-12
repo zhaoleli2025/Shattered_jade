@@ -42,10 +42,34 @@
   #boardwrap { flex: 1 1 auto; overflow: hidden; display: flex; align-items: center; justify-content: center; padding: 4px; position: relative; }
   svg#board { display: block; width: 100%; height: 100%; }
   #citypanel {
-    position: absolute; left: 10px; bottom: 10px; z-index: 5;
-    display: none; width: 300px; max-height: calc(100% - 20px); overflow-y: auto;
-    background: rgba(43,38,32,.92); color: var(--paper);
-    padding: 8px 12px; font-size: 13px; line-height: 1.55; border-radius: 6px;
+    position: absolute; right: 0; top: 0; bottom: 0; z-index: 6;
+    display: none; width: 330px; overflow-y: auto;
+    background: rgba(43,38,32,.95); color: var(--paper);
+    padding: 10px 14px; font-size: 13px; line-height: 1.6;
+    border-left: 2px solid var(--gold); box-shadow: -6px 0 18px rgba(0,0,0,.35);
+  }
+  #citypanel details { margin: 4px 0 4px 8px; }
+  #citypanel details details { margin-left: 18px; }
+  #citypanel summary {
+    cursor: pointer; list-style: none; font-weight: bold; color: #e8d9b0;
+    padding: 2px 0; user-select: none;
+  }
+  #citypanel summary::before { content: "▸ "; color: var(--gold); }
+  #citypanel details[open] > summary::before { content: "▾ "; }
+  #citypanel .leaf { margin-left: 26px; }
+  #townbtn {
+    position: absolute; right: 12px; top: 12px; z-index: 5; display: none;
+    background: var(--gold); color: #fff; font-weight: bold;
+    border-radius: 4px; padding: 6px 14px;
+  }
+  #zoomctl {
+    position: absolute; right: 12px; bottom: 12px; z-index: 5;
+    display: flex; flex-direction: column; gap: 6px;
+  }
+  #zoomctl button {
+    width: 38px; height: 34px; font-size: 17px; font-weight: bold;
+    background: rgba(43,38,32,.88); color: var(--paper);
+    border: 1px solid var(--ink-soft); border-radius: 5px;
   }
   #citypanel b { color: #f0d9a6; }
   #citypanel h4 {
@@ -130,7 +154,13 @@
   <a class="navlink" href="index.html">战斗原型</a>
 </header>
 <div id="main">
-  <div id="boardwrap"><svg id="board"></svg><div id="citypanel"></div></div>
+  <div id="boardwrap"><svg id="board"></svg><div id="citypanel"></div>
+    <button id="townbtn">入城</button>
+    <div id="zoomctl">
+      <button onclick="uiZoom(1.25)" title="放大">＋</button>
+      <button onclick="uiZoom(0.8)" title="缩小">－</button>
+      <button onclick="uiCenter()" title="回到镖队">⌖</button>
+    </div></div>
   <div id="panel">
     <h3>移动预览 · 悬停舆图</h3>
     <div id="hoverinfo">悬停可达之处查看路线与行程，点击即出发。拖拽或贴边可挪图，滚轮缩放。官道日行八格，山林减半；大河层峦不可逾，须寻渡桥关陉。粮草须在市集购买。</div>

@@ -678,6 +678,7 @@ window.__sjCloseBattle = () => {
    any step — halts the column (sim/overworld.py travel(), animated per day) */
 async function travelTo(destK) {
   busy = true;
+  drawerOpen = false;
   clearHexHover();
   updateBar();
   const path = pathTo(dij.prev, destK);
@@ -708,6 +709,7 @@ async function travelTo(destK) {
       world.contract = null;
     }
     renderPlaces(); renderParties(); updateBar();
+    centerOn(world.party);
     if (interceptor || i + 1 >= path.length) {
       if (!interceptor) {
         log(`第${world.day}日 · 行至${s ? s.name : locName(world.party)}`, "sys");
@@ -743,8 +745,9 @@ function svgEl(tag, attrs) {
 function buildBoard() {
   boardEl.innerHTML = "";
   const w = HEX * SQRT3 * (spec.cols + 1) + 60, h = HEX * 1.5 * spec.rows + 70;
-  boardEl.setAttribute("viewBox", `0 0 ${w} ${h}`); // scales to fill the pane
-  boardEl.setAttribute("preserveAspectRatio", "xMidYMid meet");
+  BOARD_W = w; BOARD_H = h;                         // the camera pans this board
+  boardEl.setAttribute("viewBox", `0 0 ${w} ${h}`); // placeholder until applyCam
+  boardEl.setAttribute("preserveAspectRatio", "xMidYMid slice");
   const tileLayer = svgEl("g");
   for (const t of tiles.values()) {
     const { x, y } = hexToPix(t.q, t.r);
@@ -865,6 +868,11 @@ function updateBar() {
   const s0 = settlementAt(world.party);
   document.getElementById("loclabel").textContent = locName(world.party) +
     (s0 && s0.fanzhen && (!s0.hidden || world.spotted.has(s0.id)) ? `（${s0.fanzhen}）` : "");
+  const tb = document.getElementById("townbtn");
+  const post = tradePost();
+  tb.style.display = post && !busy ? "inline-block" : "none";
+  tb.textContent = drawerOpen ? "出城 ▸" : "入城 ◂";
+  if (!post) drawerOpen = false;
   renderCity();
   const s = settlementAt(world.party);
   const lair = s && s.kind === "stronghold" && !world.destroyed.has(s.id) && world.spotted.has(s.id);
@@ -872,41 +880,55 @@ function updateBar() {
   document.getElementById("campbtn").disabled = busy;
 }
 
-/* the city panel: where silver talks — 市集, 镖单, 铁匠铺 */
+/* the town drawer: a folder tree on the right — 城 ▸ 市集 / 镖单 / 铁匠铺 ▸ 各人 */
+let drawerOpen = false;
+
 function renderCity() {
   const el = document.getElementById("citypanel");
   const s = tradePost();
-  if (!s || busy) { el.style.display = "none"; el.innerHTML = ""; return; }
+  if (!s || busy || !drawerOpen) { el.style.display = "none"; el.innerHTML = ""; return; }
+  const open = new Set([...el.querySelectorAll("details[open]")].map((d) => d.dataset.k));
+  if (!el.innerHTML) { open.add("market"); open.add("jobs"); }   // first opening
+  const o = (k, dflt) => (el.innerHTML ? open.has(k) : dflt) ? " open" : "";
   const price = PROVISION_PRICE[s.kind];
   const need = PROVISIONS_MAX - world.provisions;
   const canBuy = Math.max(0, Math.min(need, Math.floor(world.gold / price)));
-  let html = `<b>${s.name}</b>${s.fanzhen ? `（${s.fanzhen}）` : ""}`;
-  html += `<h4>市集</h4><button onclick="uiBuy()" ${canBuy ? "" : "disabled"}>` +
-          `买粮${canBuy || need}日 · ${(canBuy || need) * price}两</button>`;
-  html += `<h4>镖单</h4>`;
+  let html = `<b>${s.name}</b>${s.fanzhen ? `（${s.fanzhen}）` : ""}` +
+             ` <span style="color:#c9bda0">银两 ${world.gold}</span>`;
+  html += `<details data-k="market"${o("market", true)}><summary>市集</summary>` +
+          `<div class="leaf">粮草 ${world.provisions}/${PROVISIONS_MAX} · ${price}两/日<br>` +
+          `<button onclick="uiBuy()" ${canBuy ? "" : "disabled"}>买粮${canBuy || need}日 · ${(canBuy || need) * price}两</button></div></details>`;
+  html += `<details data-k="jobs"${o("jobs", true)}><summary>镖单</summary>`;
   const board = cityJobs();
-  if (!board.length) html += `<div class="job"><span>暂无镖单</span></div>`;
+  if (!board.length) html += `<div class="leaf">暂无镖单</div>`;
   board.forEach((jb, i) => {
-    html += `<div class="job"><span>${jb.name} · ${jb.pay}两</span>` +
+    html += `<div class="job leaf"><span>${jb.name} · ${jb.pay}两</span>` +
             `<button onclick="uiTake(${i})" ${world.contract ? "disabled" : ""}>接单</button></div>`;
   });
+  if (world.contract) html += `<div class="leaf" style="color:#c9bda0">在身：${world.contract.name}</div>`;
+  html += `</details>`;
   if (s.kind === "city") {
-    html += `<h4>铁匠铺</h4>`;
-    for (const h of HEROES) {
-      const g = world.gear[h.id] || {};
-      let row = `<div class="job"><span>${h.name}</span>`;
+    html += `<details data-k="smith"${o("smith", false)}><summary>铁匠铺</summary>`;
+    for (const hero of HEROES) {
+      const g = world.gear[hero.id] || {};
+      html += `<details data-k="smith-${hero.id}"${o("smith-" + hero.id, false)}>` +
+              `<summary>${hero.name}</summary><div class="leaf">`;
       for (const slot of GEAR_SLOTS) {
-        if (slot === "wpn2_q" && !h.wpn2) continue;
+        if (slot === "wpn2_q" && !hero.wpn2) continue;
         const cur = g[slot] || "fan";
         const i = QUALITY_LADDER.indexOf(cur) + 1;
-        if (i >= QUALITY_LADDER.length) { row += `<button disabled>${SLOT_LABEL[slot]}·神</button>`; continue; }
+        if (i >= QUALITY_LADDER.length) {
+          html += `<button disabled>${SLOT_LABEL[slot]}·神品</button> `;
+          continue;
+        }
         const nxt = QUALITY_LADDER[i], cost = SMITH_PRICE[nxt];
-        row += `<button onclick="uiSmith('${h.id}','${slot}')" ` +
-               `${world.gold < cost ? "disabled" : ""} title="${cost}两">` +
-               `${SLOT_LABEL[slot]}→${QUALITY_LABEL[nxt][0]} ${cost}</button>`;
+        html += `<button onclick="uiSmith('${hero.id}','${slot}')" ` +
+                `${world.gold < cost ? "disabled" : ""}>` +
+                `${SLOT_LABEL[slot]} ${QUALITY_LABEL[cur]}→${QUALITY_LABEL[nxt]} ${cost}两</button> `;
       }
-      html += row + `</div>`;
+      html += `</div></details>`;
     }
+    html += `</details>`;
   }
   el.innerHTML = html;
   el.style.display = "block";
@@ -914,6 +936,16 @@ function renderCity() {
 window.uiBuy = () => { marketBuy(); refresh(); };
 window.uiTake = (i) => { const jb = cityJobs()[i]; if (jb) takeJob(jb); refresh(); };
 window.uiSmith = (uid, slot) => { smithUpgrade(uid, slot); refresh(); };
+window.uiTown = () => { drawerOpen = !drawerOpen; refresh(); };
+window.uiZoom = (f) => {
+  const v0 = viewSize();
+  const cx = cam.x + v0.w / 2, cy = cam.y + v0.h / 2;
+  cam.scale = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, cam.scale * f));
+  const v = viewSize();
+  cam.x = cx - v.w / 2; cam.y = cy - v.h / 2;
+  applyCam();
+};
+window.uiCenter = () => { centerOn(world.party); };
 
 /* days a path takes at MOVE_PER_DAY budget per day (interception-free estimate) */
 function daysAlong(path) {
@@ -1003,6 +1035,8 @@ async function boot() {
   rngState = ((parseInt(new URLSearchParams(location.search).get("seed"), 10) || 1) >>> 0);
   const resumed = restoreState();   // the world survives the battle page
   buildBoard();
+  initCamera();
+  centerOn(world.party);
   if (resumed) {
     applyBattleResult();
     log(`第${world.day}日 · 行程继续（重开请按「重开」）`, "sys");
@@ -1014,6 +1048,7 @@ async function boot() {
 }
 
 document.getElementById("campbtn").addEventListener("click", doCamp);
+document.getElementById("townbtn").addEventListener("click", window.uiTown);
 document.getElementById("assault").addEventListener("click", doAssault);
 document.getElementById("restartw").addEventListener("click", () => {
   try { localStorage.removeItem(STORE()); } catch (e) {}
