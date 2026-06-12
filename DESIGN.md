@@ -1,4 +1,4 @@
-# Shattered Jade (碎玉) — Design Document v0.26
+# Shattered Jade (碎玉) — Design Document v0.27
 
 > **Title: Shattered Jade (碎玉)** — final, 2026-06-11. 宁为玉碎，不为瓦全 ("better
 > shattered jade than intact tile"): the permadeath creed in two characters — your
@@ -947,6 +947,26 @@ timelines are how side projects die — hitting month 6 still in M1 is *on pace*
 ---
 
 ## 10. Changelog
+
+**v0.27 (2026-06-12)** — **overworld v0: the 河北南部 test region** (M2 track) +
+**会战 removed**. (1) **The strategic map is HEX**, same pointy-top axial grid and
+(col,row)→q convention as the battle maps — settled over the proposed square grid
+because the locked hex math is shared, there is no diagonal-distance distortion,
+and the Godot port path is identical. One overworld hex ≈ half a 驿程;
+MOVE_PER_DAY=8 points: 官道 1/hex · plain 2 · hills/forest 3 · rivers impassable
+except 渡口 2 / 桥 1 (`sim/overworld.py`, `world/<region>.json`). (2) **The whole
+map will follow the historical macro-regions** — 河北 · 河东 · 河南 · 关中 · 山东,
+southern kingdoms as borders; first authored region: **河北南部, 24×16** (c. 942
+后晋): the **拒马河 frontier** with 瀛州/莫州 beyond it as Liao-occupied towns
+(幽云十六州, ceded 938 — M4 hooks), 镇州 (成德) / 定州 (义武) / 沧州 (横海) as the
+garrison cities, 深州·河间·赵州·望都, the 滹沱河 with 滹沱桥 at 镇州's gates (守桥's
+bridge), and 黑风寨 in the 西山 foothills (the battle scenarios' bandit lair on the
+map). (3) Headless like M0: load → Dijkstra travel → day clock → travel events;
+ASCII render; 7 tests (roads beat open country, rivers block except crossings,
+frontier crossable only at the fords, all settlements reachable; 镇州→定州 = 2 天).
+(4) **会战 · 黑风岭下 removed** as duplicative of 血战 (守桥 covers rout cascades,
+血战 covers the big-map war); the 悍匪 templates retired with it; ladder back to
+five. 100 tests green.
 
 **v0.26 (2026-06-12)** — **血战 · 拒马河: the Khitan meat grinder** (endgame scenario
 six, ★★★★★★ — the invasion-climax battle, fought at the historical anti-Khitan

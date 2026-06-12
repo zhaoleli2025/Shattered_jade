@@ -14,6 +14,7 @@ Khitan invasion. Every blade has a name; permadeath is permanent: 宁为玉碎�
 | `scenarios/*.json` | Battles as data — read by both the web prototype and the sim |
 | `prototype_web/` | Playable browser battle prototype (no build step) |
 | `sim/` | M0: the engine-agnostic Python combat sim — same rules, pytest-locked, with an AI-vs-AI batch runner |
+| `world/*.json` | Overworld regions as data (M2 track) — hex strategic map, first region: 河北南部 |
 | `godot/` | M1: the Godot 4 client — GDScript sim-core port, pinned to Python golden vectors |
 | `releases/` | Frozen STABLE editions of the standalone HTML (test-gated, version-stamped) |
 | `tools/build_standalone.py` | Regenerates the offline standalone HTML from index.html + game.js + scenarios |
@@ -64,6 +65,19 @@ python3 -m sim.run_batch 500 gongzhai      # also: shouqiao, duijue
 The web prototype is the reference implementation; `sim/` is the port and the
 balance instrument. Any combat-rule change must land in both (and the standalone
 gets rebuilt — see above).
+
+## Overworld (M2 track, headless v0)
+
+The strategic layer uses the same hex grid as battles. The first authored region
+is 河北南部 c. 942 — the 拒马河 Khitan frontier, three garrison cities, and the
+bandit hills — in `world/hebei.json`:
+
+```python
+from sim.overworld import load_world, travel, render
+w = load_world("hebei")
+travel(w, "dingzhou")     # 镇州 → 定州 along the 官道: 2 天
+print(render(w))          # ASCII region map, party = 镖
+```
 
 ## M1 — the Godot client (in progress)
 
