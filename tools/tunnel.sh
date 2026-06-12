@@ -32,12 +32,19 @@ if ! ss -tln 2>/dev/null | grep -q ":$PORT "; then
 fi
 
 pkill -f "cpolar http" 2>/dev/null || true
-nohup "$CPOLAR" http "$PORT" -log=stdout -log-level=info >"$LOG" 2>&1 &
+# try the reserved name first (paid plans, like the ntw one); fall back to random
+SUB="${SJ_SUBDOMAIN:-shatteredjade}"
+nohup "$CPOLAR" http -subdomain="$SUB" "$PORT" -log=stdout -log-level=info >"$LOG" 2>&1 &
 printf "tunnelling"
 URL=""
-for _ in $(seq 1 25); do
+for i in $(seq 1 25); do
   URL=$(grep -oE "https://[a-z0-9-]+\.[a-z0-9]+\.cpolar\.(io|top|cn)" "$LOG" | head -1)
   [ -n "$URL" ] && break
+  if [ "$i" = 8 ] && grep -qiE "error|failed|not allowed" "$LOG"; then
+    pkill -f "cpolar http" 2>/dev/null || true
+    : >"$LOG"
+    nohup "$CPOLAR" http "$PORT" -log=stdout -log-level=info >>"$LOG" 2>&1 &
+  fi
   printf "."
   sleep 1
 done
