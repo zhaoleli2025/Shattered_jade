@@ -17,10 +17,12 @@ from .ai import ai_turn
 from .commands import Stance, Strike, Swap, resolve, targets_of
 from .engine import run_battle
 from .hexmath import hex_dist
-from .overworld import (atone, battle_wear, camp, dismiss, fail_contract, hire,
-                        jobs, load_world, market_buy, plunder, raze, recruits_here,
-                        repair_bill, smith_repair, smith_upgrade, take_job,
-                        travel, waylay, dijkstra as wdijkstra, render as wrender)
+from .overworld import (atone, battle_wear, camp, dismiss, exam, fail_contract,
+                        gossip, hire, jobs, load_world, market_buy, plunder,
+                        raze, recruits_here, repair_bill, smith_repair,
+                        smith_upgrade, take_job, travel, waylay,
+                        dijkstra as wdijkstra, render as wrender)
+from . import recruit as rc
 from .pathfind import dijkstra
 from .rules import hit_breakdown
 from .state import load_scenario
@@ -165,8 +167,9 @@ WORLD_HELP = """\
   go 地名/id   前往（如: go 定州 / go dingzhou）   go C R  前往 列C 行R
   camp     扎营一日       assault   攻打脚下贼寨
   buy      市集买粮(补满)  jobs      看镖单
-  roster   看队伍名册      enlist    看可招之人
-  hire 种类  招募(乡勇/刀手/弓手)   fire N    遣散第 N 名雇员
+  roster   看队伍名册      enlist    看招募榜（候选）
+  look N   看相（候选第 N 个）  gossip N  茶馆打探特性  exam N  医馆考较天赋
+  hire N   招募候选第 N 个     fire N    遣散第 N 名雇员
   take N   接第 N 单      smith 人 部位   铁匠铺升品 (如: smith wang wpn_q)
   mend 人   修缮甲械（大城/州镇铁铺；如: mend wang）
   map      重看舆图       who       已发现的队伍
@@ -295,13 +298,39 @@ def play_campaign(world_id="hebei", seed=0):
             if not w.members:
                 say("  尚无雇员。")
         elif op == "enlist":
-            for r in recruits_here(w):
-                say(f"  {r['kind']}：雇金{r['fee']}两，日饷{r['wage']}两")
-            if not recruits_here(w):
-                say("  此地无人可招。")
-        elif op == "hire" and len(toks) > 1:
-            say(f"  招得{toks[1]}入伙。" if hire(w, toks[1])
-                else "  招不得（此地无此等人，或银两不足）。")
+            pool = recruits_here(w)
+            for i, r in enumerate(pool, 1):
+                tag = "·".join(rc.TRAITS[t]["name"] for t in r["traits"]) if r["reveal"] >= 1 else "？"
+                say(f"  [{i}] {r['nick']}·{r['name']}（{r['bg_name']}）"
+                    f"雇{r['fee']} 饷{r['wage']} 特性：{tag}")
+            if not pool:
+                say("  此地无招募榜。")
+        elif op in ("look", "gossip", "exam", "hire") and len(toks) > 1:
+            pool = recruits_here(w)
+            try:
+                r = pool[int(toks[1]) - 1]
+            except (ValueError, IndexError):
+                say("  无此候选。"); continue
+            if op == "look":
+                s = rc.sheet(r)
+                say(f"  {r['nick']}·{r['name']}（{r['bg_name']}）—— {r['blurb']}")
+                say("  " + " ".join(f"{rc.ATTR_NAME[a]}{v}" for a, v in s['stats'].items()))
+                say(f"  {s['hint']}；兵器 {r['weapon']}")
+                if r["reveal"] >= 1:
+                    say("  特性：" + ("、".join(rc.TRAITS[t]["name"] for t in r["traits"]) or "无"))
+                if r["reveal"] >= 2:
+                    tl = rc.reveal_talents(r)
+                    say(f"  天赋：共{tl['total_stars']}星，{tl['shown']}")
+            elif op == "gossip":
+                tr = gossip(w, r["rid"])
+                say("  茶馆道：" + "、".join(tr) if tr else "  打探不得（已知或银两不足）。")
+            elif op == "exam":
+                tl = exam(w, r["rid"])
+                say(f"  考较：共{tl['total_stars']}星，{tl['shown']}" if tl
+                    else "  考较不得（已知或银两不足）。")
+            elif op == "hire":
+                say(f"  {r['nick']}·{r['name']}入伙！" if hire(w, r["rid"])
+                    else "  招不得（银两不足）。")
         elif op == "fire" and len(toks) > 1:
             try:
                 ok = dismiss(w, int(toks[1]) - 1)

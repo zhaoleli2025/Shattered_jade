@@ -1,4 +1,4 @@
-# Shattered Jade (碎玉) — Design Document v0.40
+# Shattered Jade (碎玉) — Design Document v0.41
 
 > **Title: Shattered Jade (碎玉)** — final, 2026-06-11. 宁为玉碎，不为瓦全 ("better
 > shattered jade than intact tile"): the permadeath creed in two characters — your
@@ -964,6 +964,22 @@ timelines are how side projects die — hitting month 6 still in M1 is *on pace*
 ---
 
 ## 10. Changelog
+
+**v0.41 (2026-06-12)** — **BB recruitment, stage 1: named souls** (the §4.2–4.3
+attachment engine, deploy-in-battle is stage 2). Hiring is no longer abstract
+tiers but a refreshing pool of **rolled characters**: 姓+名 plus a Water Margin
+**绰号** (豹子头·林冲-style), a 出身 from the canonical six (佃农·退伙强人·猎户·
+还俗僧·趟子手·游侠, each with stat *ranges*, fee, wage, weapon, trait bias),
+**0–2 hidden 特性** with real effects (天生神力/铁肺/悍勇/独眼/跛足/嗜酒/贪婪…),
+and **3 hidden 天赋 stars** (60/30/10 for 1/2/3, inert until leveling but the
+discovery arc is live). The **graduated reveal (F6)** is capped exactly as
+designed: a free 看相 shows background + a hint; 茶馆 gossip (~10% fee) reveals
+傳性; 医馆 exam (~25%) reveals the talent COUNT + one attribute — never the full
+star map. Pools are deterministic per (seed, settlement, 6-day epoch) and
+place-biased (cities draw 游侠, villages 佃农). `recruit.as_template()` turns a
+hired soul into a battle unit — the bridge stage 2 deploys. sim/recruit.py +
+terminal (enlist/look/gossip/exam/hire) + a faithful web port (招募 drawer with
+per-candidate 茶馆/考较/招 buttons). 139 tests green.
 
 **v0.40 (2026-06-12)** — **the roster economy: every rider a mule and a mouth**
 (user-specced: each member adds 粮草 capacity AND consumption + a daily wage;

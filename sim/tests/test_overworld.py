@@ -489,25 +489,23 @@ def test_roster_carries_eats_and_is_paid():
 def test_hire_grows_load_appetite_and_wage():
     from sim.overworld import dismiss, hire, recruits_here
     w = W()                                             # at 镇州, a city
-    w.gold = 500
-    kinds = [r["kind"] for r in recruits_here(w)]
-    assert kinds == ["乡勇", "刀手", "弓手"]            # a city musters all three
+    w.gold = 999
     cap0 = w.capacity()
-    assert hire(w, "刀手") is True
+    rec = recruits_here(w)[0]
+    assert hire(w, rec["rid"]) is True
     assert w.headcount() == 5 and w.capacity() == cap0 + 2
-    assert w.daily_food() == 5 and w.daily_wage() == 8 + 4
-    assert w.members[0]["name"] == "刀手·甲"
+    assert w.daily_food() == 5 and w.daily_wage() == 8 + rec["wage"]
+    assert w.members[0]["name"] == rec["name"]
     assert dismiss(w, 0) is True                        # let him go
     assert w.headcount() == 4 and w.daily_wage() == 8
 
 
-def test_villages_muster_only_militia():
-    from sim.overworld import hire, recruits_here
+def test_villages_muster_softer_men():
+    from sim.overworld import recruits_here
     w = W()
-    w.gold = 500
     w.party = w.settlements["wangdu"]["at"]             # a village
-    assert [r["kind"] for r in recruits_here(w)] == ["乡勇"]
-    assert hire(w, "弓手") is False                     # no archers in a hamlet
+    bgs = {r["bg"] for r in recruits_here(w)}
+    assert bgs <= {"tianong", "tuihuo", "liehu"}        # no 游侠/趟子手 in a hamlet
 
 
 def test_unpaid_when_the_purse_runs_dry():

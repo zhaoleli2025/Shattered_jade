@@ -48,9 +48,74 @@ const SIGHT = 3;            // hexes; +1 ending a step on hills
 // provisions are units now; the cap rides on the roster (see capacity)
 const CORE_ROSTER = ["wang", "liu", "shi", "yan"];
 const PROVISION_BASE = 4, CARRY_PER_HEAD = 2, EAT_PER_HEAD = 1, WAGE_PER_HEAD = 2;
-const HIRE_FEE = { "乡勇": 40, "刀手": 90, "弓手": 110 };
-const RECRUIT_WAGE = { "乡勇": 2, "刀手": 4, "弓手": 5 };
-const RECRUIT_TIERS = { village: ["乡勇"], town: ["乡勇", "刀手"], city: ["乡勇", "刀手", "弓手"] };
+/* ---- BB recruitment (faithful port of sim/recruit.py; gameplay parity) ---- */
+const R_SURNAMES = "赵钱孙李周吴郑王冯陈卫蒋沈韩杨朱秦许何吕张孔曹高石马苗凤花方俞任袁柳鲍史唐费岑薛雷贺倪汤殷罗毕郝安常乐于".split("");
+const R_GIVEN = "勇刚虎彪豹龙彦荣贵福禄寿山林川河海江云风雷电铁钢锐锋利胜忠义信仁孝雄威猛壮健安平定兴旺金玉珠宝栋梁柱石根本".split("");
+const R_FGIVEN = "娘秀英兰花玉珠香莲翠红梅杏桃春燕莺凤娥婵娟淑慧".split("");
+const R_FNICK = new Set(["母大虫", "母夜叉", "一丈青"]);
+const R_NICK = {
+  tianong: ["拼命三郎","黑旋风","病大虫","笑面虎","急先锋","母大虫"],
+  tuihuo: ["丧门神","催命判官","翻江蜃","白日鼠","鼓上蚤","短命二郎"],
+  liehu: ["小李广","赛仁贵","落地太岁","花项虎","射雕手","穿云箭"],
+  huanseng: ["花和尚","行者","金刚","降魔尊者","铁罗汉","醉头陀"],
+  tangzishou: ["神行太保","镇三山","插翅虎","美髯公","金枪手","病关索"],
+  youxia: ["豹子头","小旋风","玉麒麟","青面兽","九纹龙","扑天雕","浪里白条","一丈青","双枪将"],
+};
+const R_BG = {
+  tianong: { name:"佃农", fee:[30,50], wage:2, hp:[40,48], skill:[44,50], dfn:[3,5], resolve:[32,40], init:[92,100], breath:[84,92], traits:["jianzhuang","lannuo","tiefei"], blurb:"田间出身，能扛能熬" },
+  tuihuo: { name:"退伙强人", fee:[40,70], wage:3, hp:[44,52], skill:[48,54], dfn:[4,6], resolve:[36,44], init:[96,104], breath:[84,90], traits:["tanlan","jieao","jiujiu","hanyong"], blurb:"刀头舔血过来的，手熟心野" },
+  liehu: { name:"猎户", fee:[70,100], wage:4, hp:[42,48], skill:[50,56], dfn:[5,7], resolve:[38,44], init:[104,112], breath:[88,94], traits:["duyan","tiefei","hanyong"], blurb:"山林讨生活，一手好箭法" },
+  huanseng: { name:"还俗僧", fee:[90,130], wage:5, hp:[52,62], skill:[50,56], dfn:[5,7], resolve:[48,56], init:[88,96], breath:[90,96], traits:["shenli","jiujiu","hanyong"], blurb:"酒肉穿肠的莽和尚" },
+  tangzishou: { name:"趟子手", fee:[100,150], wage:5, hp:[50,58], skill:[54,60], dfn:[6,9], resolve:[42,48], init:[96,104], breath:[87,92], traits:["hanyong","tiefei"], blurb:"押过多少趟镖的老手" },
+  youxia: { name:"游侠", fee:[200,300], wage:8, hp:[48,58], skill:[60,68], dfn:[8,12], resolve:[44,52], init:[104,114], breath:[88,94], traits:["shenli","hanyong","bozu"], blurb:"来去无踪的剑客，价高却值" },
+};
+const R_TRAIT = { shenli:"天生神力", tiefei:"铁肺", hanyong:"悍勇", danqie:"胆怯", duyan:"独眼", bozu:"跛足", jiujiu:"嗜酒", tanlan:"贪婪", jieao:"桀骜", jianzhuang:"健壮", lannuo:"懒惰" };
+const R_ATTRS = ["hp","skill","dfn","resolve","init","breath"];
+const R_ANAME = { hp:"血", skill:"武艺", dfn:"招架", resolve:"胆识", init:"先手", breath:"气力" };
+const R_REFRESH = 6, R_POOL = 4;
+const R_WAGEADJ = { jiujiu:1, tanlan:2 };
+
+function strSeed(s){let h=2166136261>>>0;for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,16777619);}return h>>>0;}
+function makeRng(str){let a=strSeed(str);const m=()=>{a=(a+0x6D2B79F5)>>>0;let t=a;t=Math.imul(t^(t>>>15),t|1);t^=t+Math.imul(t^(t>>>7),t|61);return((t^(t>>>14))>>>0)/4294967296;};
+  return { next:m, int:(lo,hi)=>lo+Math.floor(m()*(hi-lo+1)), pick:(a)=>a[Math.floor(m()*a.length)],
+    sample:(arr,k)=>{const c=arr.slice();const out=[];for(let i=0;i<k&&c.length;i++)out.push(c.splice(Math.floor(m()*c.length),1)[0]);return out;},
+    chance:(p)=>m()<p, weighted:(keys,wts)=>{const s=wts.reduce((x,y)=>x+y,0);let r=m()*s;for(let i=0;i<keys.length;i++){r-=wts[i];if(r<0)return keys[i];}return keys[keys.length-1];} };}
+
+function rcGenerate(rng, bgKey, idx){
+  const bg = R_BG[bgKey];
+  const female = rng.chance(0.12);
+  const given = rng.sample(female ? R_FGIVEN : R_GIVEN, rng.int(1,2)).join("");
+  const name = rng.pick(R_SURNAMES) + given;
+  const nicks = R_NICK[bgKey].filter((n)=>female || !R_FNICK.has(n));
+  const nick = rng.pick(nicks);
+  const stats = {}; for (const a of R_ATTRS) stats[a] = rng.int(bg[a][0], bg[a][1]);
+  const pool = bg.traits.concat(Object.keys(R_TRAIT).filter(()=>rng.chance(0.15)));
+  const nT = rng.weighted([0,1,2],[25,50,25]);
+  const traits = rng.sample(pool, Math.min(nT, pool.length));
+  const starred = rng.sample(R_ATTRS, 3); const talents = {};
+  for (const a of starred) talents[a] = rng.weighted([1,2,3],[60,30,10]);
+  let fee = rng.int(bg.fee[0], bg.fee[1]), wage = bg.wage;
+  for (const t of traits) {
+    if (t==="tiefei") stats.breath += 12; else if (t==="hanyong") stats.resolve += 8;
+    else if (t==="danqie") stats.resolve -= 8; else if (t==="bozu") stats.init -= 8;
+    else if (t==="lannuo") stats.init -= 4; else if (t==="jianzhuang") stats.hp += 6;
+    else if (t==="jieao") { stats.resolve -= 4; stats.skill += 4; }
+    wage += R_WAGEADJ[t] || 0;
+  }
+  return { rid:`${bgKey}_${idx}`, name, nick, female, bg:bgKey, bg_name:bg.name, blurb:bg.blurb,
+           stats, traits, talents, fee, wage, reveal:0 };
+}
+function rcPool(settlement, day){
+  const epoch = Math.floor(day / R_REFRESH);
+  const rng = makeRng(`recruit:${spec.id}:${settlement.id}:${epoch}`);
+  const w = settlement.kind === "city" ? { tianong:2, tuihuo:2, liehu:2, huanseng:1, tangzishou:2, youxia:1 }
+    : settlement.kind === "town" ? { tianong:3, tuihuo:2, liehu:2, tangzishou:1 }
+    : { tianong:4, tuihuo:1, liehu:2 };
+  const keys = Object.keys(w), wts = keys.map((k)=>w[k]);
+  const out = [];
+  for (let i=0;i<R_POOL;i++) out.push(rcGenerate(rng, rng.weighted(keys,wts), i));
+  return out;
+}
 function headcount() { return CORE_ROSTER.length + world.members.length; }
 function capacity() { return PROVISION_BASE + CARRY_PER_HEAD * headcount(); }
 function dailyFood() { return EAT_PER_HEAD * headcount(); }
@@ -164,7 +229,7 @@ function restoreState() {
   world.provisions = s.provisions;
   world.infamy = s.infamy || 0;
   world.members = Array.isArray(s.members) ? s.members.filter(
-    (m) => m && RECRUIT_WAGE[m.kind]) : [];
+    (m) => m && typeof m.wage === "number" && m.name) : [];
   world.party = s.party.slice();
   world.gold = s.gold;
   world.contract = s.contract || null;
@@ -1018,20 +1083,26 @@ function renderCity() {
   });
   if (world.contract) html += `<div class="leaf" style="color:#c9bda0">在身：${world.contract.name}</div>`;
   html += `</details>`;
-  // 招募: muster hands here (BB: bigger places, better recruits)
+  // 招募: the named candidates this place is mustering (BB pool + reveal)
   {
-    const tiers = RECRUIT_TIERS[s.kind] || [];
     let rrows = "";
-    for (const k of tiers) {
-      const fee = HIRE_FEE[k];
-      rrows += `<div class="job"><span>${k} · 雇金${fee} 日饷${RECRUIT_WAGE[k]}</span>` +
-               `<button onclick="uiHire('${k}')" ${world.gold < fee ? "disabled" : ""}>招募</button></div>`;
+    for (const r of recruitsHere()) {
+      const tr = r.reveal >= 1
+        ? (r.traits.map((t)=>R_TRAIT[t]).join("、") || "无异")
+        : `<button onclick="uiGossip('${r.rid}')" ${world.gold < Math.max(5, r.fee/10|0) ? "disabled":""}>茶馆${Math.max(5, r.fee/10|0)}</button>`;
+      const tl = r.reveal >= 2
+        ? `共${Object.values(r.talents).reduce((a,b)=>a+b,0)}★`
+        : `<button onclick="uiExam('${r.rid}')" ${world.gold < Math.max(15, r.fee/4|0) ? "disabled":""}>考较${Math.max(15, r.fee/4|0)}</button>`;
+      rrows += `<div class="job leaf" title="${r.blurb}"><span>${r.nick}·${r.name}` +
+               `<span style="color:#c9bda0">（${r.bg_name} 武${r.stats.skill} 血${r.stats.hp}）</span></span>` +
+               `<button onclick="uiHire('${r.rid}')" ${world.gold < r.fee ? "disabled":""}>招 ${r.fee}·饷${r.wage}</button></div>` +
+               `<div class="leaf" style="font-size:11px;color:#b3a98c">特性：${tr}　天赋：${tl}</div>`;
     }
     world.members.forEach((m, i) => {
-      rrows += `<div class="job leaf"><span>${m.name}（饷${m.wage}）</span>` +
+      rrows += `<div class="job leaf"><span>${m.nick ? m.nick+"·" : ""}${m.name}（${m.bg_name||""} 饷${m.wage}）</span>` +
                `<button onclick="uiFire(${i})">遣散</button></div>`;
     });
-    html += `<details data-k="recruit"${o("recruit", false)}><summary>招募 · ${headcount()}人</summary>${rrows}</details>`;
+    html += `<details data-k="recruit"${o("recruit", false)}><summary>招募 · 在册${headcount()}人</summary>${rrows}</details>`;
   }
   if (s.kind === "city" || s.kind === "town") {
     let rows = "";
@@ -1094,14 +1165,42 @@ window.uiAtone = () => {
 };
 window.uiTake = (i) => { const jb = cityJobs()[i]; if (jb) takeJob(jb); refresh(); };
 window.uiSmith = (uid, slot) => { smithUpgrade(uid, slot); refresh(); };
-window.uiHire = (kind) => {
-  const fee = HIRE_FEE[kind];
-  if (world.gold < fee || !RECRUIT_TIERS[(tradePost() || {}).kind || ""].includes(kind)) return;
-  world.gold -= fee;
-  const n = world.members.filter((m) => m.kind === kind).length + 1;
-  const name = kind + "·" + "甲乙丙丁戊己庚辛壬癸"[(n - 1) % 10];
-  world.members.push({ name, kind, wage: RECRUIT_WAGE[kind] });
-  log(`第${world.day}日 · 招得${name}入伙（雇金${fee}两）`, "b");
+function recruitsHere() {
+  const s = tradePost();
+  if (!s) return [];
+  const epoch = Math.floor(world.day / R_REFRESH);
+  if (!world._pool || world._pool.key !== s.id + ":" + epoch) {
+    const taken = new Set(world.members.map((m) => m.rid));
+    world._pool = { key: s.id + ":" + epoch,
+                    list: rcPool(s, world.day).filter((r) => !taken.has(r.rid)) };
+  }
+  return world._pool.list;
+}
+const recById = (rid) => recruitsHere().find((r) => r.rid === rid);
+window.uiGossip = (rid) => {
+  const r = recById(rid); if (!r || r.reveal >= 1) return;
+  const cost = Math.max(5, r.fee / 10 | 0);
+  if (world.gold < cost) return;
+  world.gold -= cost; r.reveal = Math.max(r.reveal, 1);
+  log(`第${world.day}日 · 茶馆打探${r.name}：${r.traits.map((t)=>R_TRAIT[t]).join("、")||"无异"}`, "sys");
+  refresh();
+};
+window.uiExam = (rid) => {
+  const r = recById(rid); if (!r || r.reveal >= 2) return;
+  const cost = Math.max(15, r.fee / 4 | 0);
+  if (world.gold < cost) return;
+  world.gold -= cost; r.reveal = Math.max(r.reveal, 2);
+  const total = Object.values(r.talents).reduce((a,b)=>a+b,0);
+  log(`第${world.day}日 · 医馆考较${r.name}：共${total}星`, "sys");
+  refresh();
+};
+window.uiHire = (rid) => {
+  const r = recById(rid);
+  if (!r || world.gold < r.fee) return;
+  world.gold -= r.fee;
+  world.members.push(Object.assign({}, r));
+  world._pool.list = world._pool.list.filter((x) => x.rid !== rid);
+  log(`第${world.day}日 · ${r.nick}·${r.name}（${r.bg_name}）入伙，雇金${r.fee}两`, "b");
   refresh();
 };
 window.uiFire = (i) => {

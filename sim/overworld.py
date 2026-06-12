@@ -20,6 +20,7 @@ import os
 from dataclasses import dataclass, field
 
 from . import data
+from . import recruit as rc
 from .hexmath import hex_dist, neighbors
 from .rng import Streams
 
@@ -186,7 +187,7 @@ def load_world(world_id, seed=0):
             if wp not in settlements:
                 raise ValueError(f"party '{p['id']}': unknown waypoint '{wp}'")
         if p["kind"] == "bandit" and (not p.get("home") or p.get("prowl", 0) < 0):
-            raise ValueError(f"bandit '{p['id']}' needs a home and prowl >= 0")
+            raise ValueError(f"bandit '{p['id']}' needs a home and prowl >= 0")  # noqa
         anchor = settlements[p.get("home") or p["route"][0]]["at"]
         route = p.get("route") or []
         world.parties.append(WParty(
@@ -470,31 +471,61 @@ def smith_repair(world, uid):
 
 
 def recruits_here(world):
-    """What a settlement offers: villages give 乡勇, towns add 刀手, cities all
-    three (bigger places, better hands — BB attached-location flavor)."""
+    """The named candidates this settlement is offering this epoch (BB pool).
+    Cached on the world so a look/gossip/exam persists between views until the
+    pool refreshes or one is hired away."""
     s = _trade_post(world)
     if not s:
         return []
-    by_kind = {"village": ["乡勇"], "town": ["乡勇", "刀手"],
-               "city": ["乡勇", "刀手", "弓手"]}[s["kind"]]
-    return [dict(kind=k, fee=HIRE_FEE[k], wage=RECRUIT_KINDS[k]["wage"])
-            for k in by_kind]
+    epoch = world.day // rc.REFRESH_DAYS
+    cache = getattr(world, "_pool", None)
+    if not cache or cache[0] != (s["id"], epoch):
+        fresh = rc.pool_for(world, s)
+        taken = {m.get("rid") for m in world.members}
+        fresh = [r for r in fresh if r["rid"] not in taken]
+        world._pool = ((s["id"], epoch), fresh)
+    return world._pool[1]
 
 
-def hire(world, kind):
-    """招募: take on a hand — a one-time fee, then a daily wage forever."""
-    if kind not in RECRUIT_KINDS or not _trade_post(world):
+def gossip(world, rid):
+    """茶馆: pay ~10% of the fee to learn a recruit's hidden 特性."""
+    rec = next((r for r in recruits_here(world) if r["rid"] == rid), None)
+    if rec is None or rec["reveal"] >= 1:
+        return None
+    cost = rc.gossip_cost(rec)
+    if world.gold < cost:
+        return None
+    world.gold -= cost
+    traits = rc.reveal_traits(rec)
+    world.emit("gossip", rid=rid, cost=cost)
+    return traits
+
+
+def exam(world, rid):
+    """医馆: pay to learn the talent COUNT and one attribute (never the map)."""
+    rec = next((r for r in recruits_here(world) if r["rid"] == rid), None)
+    if rec is None or rec["reveal"] >= 2:
+        return None
+    cost = rc.exam_cost(rec)
+    if world.gold < cost:
+        return None
+    world.gold -= cost
+    out = rc.reveal_talents(rec)
+    world.emit("exam", rid=rid, cost=cost)
+    return out
+
+
+def hire(world, rid):
+    """招募: take on a named hand — the fee now, the wage forever, and the
+    whole character (stats/traits/talents) joins the company."""
+    rec = next((r for r in recruits_here(world) if r["rid"] == rid), None)
+    if rec is None or world.gold < rec["fee"]:
         return False
-    if kind not in [r["kind"] for r in recruits_here(world)]:
-        return False
-    fee = HIRE_FEE[kind]
-    if world.gold < fee:
-        return False
-    world.gold -= fee
-    n = sum(1 for m in world.members if m["kind"] == kind) + 1
-    name = f"{kind}·{'甲乙丙丁戊己庚辛壬癸'[(n - 1) % 10]}"
-    world.members.append(dict(name=name, kind=kind, wage=RECRUIT_KINDS[kind]["wage"]))
-    world.emit("hired", name=name, kind=kind, fee=fee)
+    world.gold -= rec["fee"]
+    world.members.append(dict(rec))           # the full character rides along
+    world._pool[1].remove(rec)                # gone from the board
+    world.emit("hired", name=rec["name"], nick=rec["nick"],
+               bg=rec["bg_name"], fee=rec["fee"])
     return True
 
 
