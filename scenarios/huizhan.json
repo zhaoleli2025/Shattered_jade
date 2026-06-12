@@ -1,0 +1,205 @@
+{
+  "id": "huizhan",
+  "name": "会战 · 黑风岭下",
+  "intro": [
+    "会战！坐山雕与过山风两山合流，倾巢而出——镖局尽起人手，雇乡勇结阵，在黑风岭下的官道上迎头摆开。",
+    "镖局十二人，迎贼众十七：枪林在前，刀斧在中，弓弩在后。阵线一旦崩开，溃逃会像瘟疫一样传染。",
+    "北面有缓岭可抢，南面竹林掩翼，阵前一汪烂泥塘不可涉——抢高地，护两翼，顶住第一波。"
+  ],
+  "map": {
+    "cols": 17,
+    "rows": 11,
+    "road": [
+      [-2, 5],
+      [-1, 5],
+      [0, 5],
+      [1, 5],
+      [2, 5],
+      [3, 5],
+      [4, 5],
+      [5, 5],
+      [6, 5],
+      [7, 5],
+      [8, 5],
+      [9, 5],
+      [10, 5],
+      [11, 5],
+      [12, 5],
+      [13, 5],
+      [14, 5]
+    ],
+    "cart": null,
+    "forest": [
+      [1, 8],
+      [2, 8],
+      [3, 8],
+      [4, 8],
+      [2, 9],
+      [3, 9],
+      [10, 8],
+      [11, 8],
+      [10, 9]
+    ],
+    "elev1": [
+      [5, 2],
+      [6, 2],
+      [7, 2],
+      [8, 2],
+      [6, 1],
+      [7, 1],
+      [5, 3],
+      [8, 3]
+    ],
+    "elev2": [
+      [6, 3],
+      [7, 2]
+    ],
+    "elev3": [],
+    "wall": [],
+    "water": [
+      [5, 6],
+      [6, 6]
+    ]
+  },
+  "units": [
+    {
+      "id": "xyc",
+      "spawn": [2, 2]
+    },
+    {
+      "id": "chen",
+      "spawn": [2, 3]
+    },
+    {
+      "id": "xya",
+      "spawn": [1, 4]
+    },
+    {
+      "id": "wang",
+      "spawn": [1, 5]
+    },
+    {
+      "id": "xyb",
+      "spawn": [0, 6]
+    },
+    {
+      "id": "xyd",
+      "spawn": [0, 7]
+    },
+    {
+      "id": "shi",
+      "spawn": [1, 3]
+    },
+    {
+      "id": "zhou",
+      "spawn": [0, 4]
+    },
+    {
+      "id": "liu",
+      "spawn": [0, 5]
+    },
+    {
+      "id": "he",
+      "spawn": [-1, 6]
+    },
+    {
+      "id": "yan",
+      "spawn": [-1, 4]
+    },
+    {
+      "id": "lu",
+      "spawn": [-2, 6]
+    },
+    {
+      "id": "hfa",
+      "spawn": [12, 2],
+      "armor_q": "jing"
+    },
+    {
+      "id": "hfb",
+      "spawn": [11, 4],
+      "armor_q": "jing"
+    },
+    {
+      "id": "hfc",
+      "spawn": [10, 7],
+      "armor_q": "jing"
+    },
+    {
+      "id": "hfd",
+      "spawn": [10, 6],
+      "armor_q": "jing"
+    },
+    {
+      "id": "lla",
+      "spawn": [14, 2]
+    },
+    {
+      "id": "shemao",
+      "spawn": [12, 3],
+      "wpn_q": "liang",
+      "armor_q": "liang"
+    },
+    {
+      "id": "llb",
+      "spawn": [14, 3]
+    },
+    {
+      "id": "zuanshan",
+      "spawn": [11, 5],
+      "wpn_q": "liang",
+      "armor_q": "liang"
+    },
+    {
+      "id": "llc",
+      "spawn": [12, 6]
+    },
+    {
+      "id": "lld",
+      "spawn": [12, 7]
+    },
+    {
+      "id": "duyan",
+      "spawn": [13, 3],
+      "wpn_q": "liang",
+      "armor_q": "liang"
+    },
+    {
+      "id": "xiaohu",
+      "spawn": [12, 4],
+      "wpn_q": "liang",
+      "armor_q": "liang"
+    },
+    {
+      "id": "erma",
+      "spawn": [12, 5],
+      "wpn_q": "liang",
+      "armor_q": "liang"
+    },
+    {
+      "id": "guoshanfeng",
+      "spawn": [11, 6],
+      "wpn_q": "liang",
+      "armor_q": "jing",
+      "helmet_q": "liang"
+    },
+    {
+      "id": "yemao",
+      "spawn": [13, 4],
+      "wpn_q": "liang",
+      "armor_q": "liang"
+    },
+    {
+      "id": "diao",
+      "spawn": [13, 5],
+      "wpn_q": "jing",
+      "armor_q": "liang"
+    },
+    {
+      "id": "hfe",
+      "spawn": [14, 5],
+      "wpn_q": "liang",
+      "armor_q": "liang"
+    }
+  ]
+}

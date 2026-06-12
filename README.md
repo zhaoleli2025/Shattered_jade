@@ -39,13 +39,14 @@ artifact `prototype_web/shattered_jade_battle.html` is rebuilt by
 fails if it drifts. (`prototype_web/scenarios` is a symlink to `../scenarios` —
 serve from a symlink-aware host, i.e. anything but a Windows checkout.)
 
-Four battles, a difficulty ladder (AI-vs-AI player win rate at 2000 seeds):
+Five battles, a difficulty ladder (AI-vs-AI player win rate, 300 seeds, v0.25):
 
-| ★ | 劫镖 · 山道伏击 | defend the convoy on the mountain road | 63% |
+| ★ | 劫镖 · 山道伏击 | defend the convoy on the mountain road | 60% |
 | --- | --- | --- | --- |
-| ★★ | 守桥 · 断后之战 | hold the bridge and ford, 4 vs 9 | 57% |
-| ★★★ | 对决 · 黑风三煞 | elite duel around the mound, 3 vs 5 | 48% |
-| ★★★★ | 攻寨 · 强袭山寨 | storm the walled mountain village | 41% |
+| ★★ | 守桥 · 断后之战 | hold the bridge and ford, 4 vs 9 | 56% |
+| ★★★ | 对决 · 黑风三煞 | elite duel around the mound, 3 vs 5 | 47% |
+| ★★★★ | 攻寨 · 强袭山寨 | storm the walled mountain village, 6 vs 8 | 51% |
+| ★★★★★ | 会战 · 黑风岭下 | pitched battle, two armies, 12 vs 17 on a 17×11 field | 56% |
 
 Left click moves/strikes via the skill bar; right click inspects anyone; every
 die roll is public in the combat log.

@@ -1,4 +1,4 @@
-# Shattered Jade (碎玉) — Design Document v0.24
+# Shattered Jade (碎玉) — Design Document v0.25
 
 > **Title: Shattered Jade (碎玉)** — final, 2026-06-11. 宁为玉碎，不为瓦全 ("better
 > shattered jade than intact tile"): the permadeath creed in two characters — your
@@ -947,6 +947,23 @@ timelines are how side projects die — hitting month 6 still in M1 is *on pace*
 ---
 
 ## 10. Changelog
+
+**v0.25 (2026-06-12)** — **会战 · 黑风岭下: the pitched battle** (the BB line-battle
+fantasy, scenario five, ★★★★★). (1) First non-13×9 map — **17×11 open field**: an
+east-west road, a north hill worth taking, bamboo cover on the south flank, a marsh
+pond splitting the center. (2) **Largest engagement: 12 vs 17 (29 units)** — the
+bureau's full muster plus four hired 乡勇 levies (new player templates: 2× 长枪
+spearwall, 2× 短矛+盾) against the combined host of BOTH camps (坐山雕 + 过山风
+fielded together — double leader-death ripples) reinforced by five new 悍匪 veteran
+templates (2× 长枪, 砍刀+盾, 短矛+盾, 猎弓). (3) **Formation is the tuning lever
+that mattered**: with mooks in the host's front rank the player won 76-96% — a probe
+showed the first death was a resolve-30 喽啰 sniped by aimed archers at round ~2.3
+in 95/100 seeds, igniting the rout cascade; moving armored veterans (精品 皮甲) to
+the front rank and the mook reserve out of bow reach swung the battle 18 points by
+itself. Final: 55.7% player over 300 seeds (53.4% over 500), mean 12.3 rounds.
+(4) First scenario exercising **helmet_q** (过山风) and quality overrides at scale
+(良品/精品 across the host's regulars). Ladder now: 劫镖 60 · 守桥 56 · 对决 47 ·
+攻寨 51 · 会战 56. 93 tests green.
 
 **v0.24 (2026-06-12)** — **combat-specials rework + the round-swing line** (both
 implementations; ruleset changes, batch-verified). (1) **碎甲 demolish reworked**: was

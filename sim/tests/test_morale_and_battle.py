@@ -120,3 +120,15 @@ def test_head_rate_quarter():
         total += 1
     heads = sum(1 for e in s.events if e["type"] == "hit" and e["head"])
     assert abs(heads / total - 0.25) < 0.02
+
+
+def test_huizhan_pitched_battle_runs_clean():
+    """会战: the first big map (17×11) and the largest field (12v17 = 29 units)."""
+    from sim.state import load_scenario
+    for seed in range(3):
+        s = load_scenario("huizhan", seed)
+        assert len(s.units) == 29 and (s.cols, s.rows) == (17, 11)
+        r = run_battle(s, {"player": ai_turn, "enemy": ai_turn})
+        assert r["winner"] in ("player", "enemy", "draw")
+        for u in s.alive_units():
+            assert not s.tiles[u.pos()].impassable
