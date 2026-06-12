@@ -1,4 +1,4 @@
-# Shattered Jade (碎玉) — Design Document v0.42
+# Shattered Jade (碎玉) — Design Document v0.43
 
 > **Title: Shattered Jade (碎玉)** — final, 2026-06-11. 宁为玉碎，不为瓦全 ("better
 > shattered jade than intact tile"): the permadeath creed in two characters — your
@@ -964,6 +964,21 @@ timelines are how side projects die — hitting month 6 still in M1 is *on pace*
 ---
 
 ## 10. Changelog
+
+**v0.43 (2026-06-13)** — **the page was broken; the folder was a mess** (cleanup +
+the real ports fix). (1) **Fixed the actual "unstable ports"**: the `world`
+object declaration in world.js had drifted — it referenced a deleted constant
+(`PROVISIONS_MAX`) and was missing the `infamy`/`members`/`progress` fields the
+recent economy/roster/leveling work added, so the page threw a ReferenceError
+at load and blanked. The server was always fine. Restored the declaration; the
+map page boots clean. (2) **A guard so it can't recur**: `tools/webcheck.js`
+loads world.js + game.js in a stubbed DOM and exercises their boot paths
+(buildWorld, headcount, recruitsHere, awardXp, mkUnit) — runtime errors that
+`node --check` and the Python suite never see now fail a pytest
+(test_webcheck). (3) **Tidied the folder**: `releases/` had accumulated 45
+version artifacts (4.8MB) tracked in git; untracked them (regenerable build
+output), gitignored the dir, pruned disk to the latest_* pointers + the current
+trio, and `release.py` now self-prunes on every cut. 147 tests green.
 
 **v0.42 (2026-06-12)** — **leveling: every fighter has a baseline, a ceiling, and
 a growth rate** (DESIGN §4.4; makes the recruit talent stars matter). Each roster

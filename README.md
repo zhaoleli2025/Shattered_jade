@@ -19,6 +19,7 @@ Khitan invasion. Every blade has a name; permadeath is permanent: 宁为玉碎�
 | `godot/` | M1: the Godot 4 client — GDScript sim-core port, pinned to Python golden vectors |
 | `releases/` | Frozen STABLE editions of the standalone HTML (test-gated, version-stamped) |
 | `tools/build_standalone.py` | Regenerates the offline standalone HTML from index.html + game.js + scenarios |
+| `tools/webcheck.js` | Headless boot-test of world.js + game.js (catches browser runtime errors `node --check` misses) |
 
 ## Play the prototype
 

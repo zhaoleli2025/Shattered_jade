@@ -121,6 +121,13 @@ def main():
     for path in (fout, os.path.join(out_dir, "latest_full.html")):
         with open(path, "w", encoding="utf-8") as f:
             f.write(full_html)
+
+    # keep releases/ tidy: only this version's trio + the latest_* pointers
+    keep = {os.path.basename(p) for p in (out, wout, fout)}
+    keep |= {"latest.html", "latest_world.html", "latest_full.html"}
+    for name in os.listdir(out_dir):
+        if name.endswith(".html") and name not in keep:
+            os.remove(os.path.join(out_dir, name))
     print(f"STABLE v{ver} released ({summary}):\n  {fout}   ← the one-file game\n"
           f"  {out}\n  {wout}\n  (+ latest_full/latest/latest_world.html)")
 

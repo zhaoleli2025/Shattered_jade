@@ -228,7 +228,8 @@ let spec = null;
 const tiles = new Map();        // key -> { q, r, terrain }
 const settlements = new Map();  // id -> spec entry (at: [q,r])
 const sites = new Map();        // id -> spec entry (anchored set-pieces)
-const world = { day: 1, provisions: PROVISIONS_MAX, party: null,
+const world = { day: 1, provisions: 12, party: null, infamy: 0,
+                members: [], progress: {},
                 parties: [], spotted: new Set(), destroyed: new Set(),
                 gold: GOLD_START, gear: {}, contract: null };
 let dij = null;                 // { costs, prev } from the column's hex
@@ -1130,7 +1131,7 @@ function renderCity() {
   const o = (k, dflt) => (el.innerHTML ? open.has(k) : dflt) ? " open" : "";
   let price = PROVISION_PRICE[s.kind];
   if (world.infamy >= INFAMY_PRICED) price += (price + 1) >> 1;  // shown as charged
-  const need = PROVISIONS_MAX - world.provisions;
+  const need = capacity() - world.provisions;
   const canBuy = Math.max(0, Math.min(need, Math.floor(world.gold / price)));
   let html = `<button onclick="uiTown()" style="float:right">出城 ▸</button>` +
              `<b>${s.name}</b>${s.fanzhen ? `（${s.fanzhen}）` : ""}` +
