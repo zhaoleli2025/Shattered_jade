@@ -1522,10 +1522,12 @@ async function boot() {
   const params = new URLSearchParams(location.search);
   const scenId = params.get("scenario") || window.__SJ_SCEN || "jiebiao";
   CAMPAIGN = params.get("campaign") === "1" || window.__SJ_CAMPAIGN === 1;
-  let CGEAR = null;
+  let CGEAR = null, CLEVELS = null;
   if (CAMPAIGN) {
     try { CGEAR = window.__SJ_GEAR || JSON.parse(localStorage.getItem("sj_gear") || "null"); }
     catch (err) { CGEAR = null; }
+    try { CLEVELS = window.__SJ_LEVELS || JSON.parse(localStorage.getItem("sj_levels") || "null"); }
+    catch (err) { CLEVELS = null; }
   }
   if (window.__SJ_CAMPAIGN) {
     const sp = document.getElementById("scenpick");
@@ -1557,12 +1559,18 @@ async function boot() {
     if (!tplById[su.id]) throw new Error(`战役 ${scenId}：未知单位 "${su.id}"`);
     if (seenIds.has(su.id)) throw new Error(`战役 ${scenId}：单位 "${su.id}" 重复上场（id 必须唯一）`);
     seenIds.add(su.id);
-    let cond = null;
-    if (CGEAR && tplById[su.id].side === "player" && CGEAR[su.id]) {
+    let cond = null, tpl = tplById[su.id];
+    if (CLEVELS && tpl.side === "player" && CLEVELS[su.id]) {
+      const lv = CLEVELS[su.id];                  // the veteran's grown stats
+      tpl = Object.assign(JSON.parse(JSON.stringify(tpl)), {
+        hpMax: lv.hp, skill: lv.skill, def: lv.dfn, resolve: lv.resolve,
+        initBase: lv.init, breathBase: lv.breath });
+    }
+    if (CGEAR && tpl.side === "player" && CGEAR[su.id]) {
       cond = CGEAR[su.id];
       su = Object.assign({}, su, cond);          // the smith's work rides to war
     }
-    const un = mkUnit(tplById[su.id], su.spawn[0], su.spawn[1], su); // su carries 品阶 overrides
+    const un = mkUnit(tpl, su.spawn[0], su.spawn[1], su); // su carries 品阶 overrides
     if (cond) {                                  // ...and so do the dents
       const tplW = tplById[su.id].wpn.label, tplW2 = tplById[su.id].wpn2 && tplById[su.id].wpn2.label;
       for (const w of [un.wpn, un.wpn2].filter(Boolean)) {

@@ -1,4 +1,4 @@
-# Shattered Jade (碎玉) — Design Document v0.41
+# Shattered Jade (碎玉) — Design Document v0.42
 
 > **Title: Shattered Jade (碎玉)** — final, 2026-06-11. 宁为玉碎，不为瓦全 ("better
 > shattered jade than intact tile"): the permadeath creed in two characters — your
@@ -964,6 +964,22 @@ timelines are how side projects die — hitting month 6 still in M1 is *on pace*
 ---
 
 ## 10. Changelog
+
+**v0.42 (2026-06-12)** — **leveling: every fighter has a baseline, a ceiling, and
+a growth rate** (DESIGN §4.4; makes the recruit talent stars matter). Each roster
+fighter (the four core heroes + every hire) carries a **per-attribute progression**:
+a baseline (the rolled/template value), an **upper limit** = base + per-attribute
+room (血 +55 · 气力 +50 · 胆识/先手 +40 · 武艺 +28 · 招架 +16), and a per-level
+**growth band** that **talent stars accelerate** — a starred attribute rolls higher
+(+★ to the band's top, ≈ +5 per star over a career) and the star **reveals itself**
+the first time leveling rolls it (the F6 discovery arc). Levels **1–11, XP
+200→15000, combat-fed** (won battles award 280 to each roster fighter; losses feed
+no one), 3 attributes raised per level, each **capped at its ceiling**. Heroes ride
+out at level 3 with signature talents (王铁枪 武艺★★…); recruits start level 1 from
+their rolled stats. **Veterans deploy stronger** — `load_scenario(levels=…)` overrides
+a grown fighter's stats (gear 坠气 preserved). sim/progress.py + terminal (roster
+sheet, level-up log) + a faithful web port (校阅 drawer folder; leveled stats ride
+into every campaign battle via __SJ_LEVELS). 146 tests green.
 
 **v0.41 (2026-06-12)** — **BB recruitment, stage 1: named souls** (the §4.2–4.3
 attachment engine, deploy-in-battle is stage 2). Hiring is no longer abstract

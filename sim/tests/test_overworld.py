@@ -514,3 +514,31 @@ def test_unpaid_when_the_purse_runs_dry():
     w.gold = 3                                          # not enough for one day
     camp(w)
     assert w.gold == 0 and any(e["type"] == "unpaid" for e in w.events)
+
+
+def test_leveled_veteran_deploys_stronger():
+    from sim.overworld import award_battle_xp, battle_levels
+    from sim.state import load_scenario
+    w = W()
+    for _ in range(10):                                 # 王铁枪 grows hard
+        award_battle_xp(w, True)
+    lv = battle_levels(w)
+    s_plain = load_scenario("jiebiao", 0)
+    s_vet = load_scenario("jiebiao", 0, levels=lv)
+    p, v = s_plain.by_id("wang"), s_vet.by_id("wang")
+    assert v.skill >= p.skill and v.hp_max >= p.hp_max  # the veteran is harder
+    assert v.skill > p.skill                            # and actually grew
+    assert all(v.armor_b == p.armor_b for _ in [0])     # gear unchanged by leveling
+
+
+def test_won_battle_feeds_the_whole_roster():
+    from sim.overworld import award_battle_xp, hire, recruits_here
+    w = W()
+    w.gold = 999
+    rec = recruits_here(w)[0]
+    hire(w, rec["rid"])
+    xp0 = {cid: w.progress[cid]["xp"] for cid in w.progress}
+    award_battle_xp(w, True)
+    assert all(w.progress[cid]["xp"] > xp0[cid] for cid in xp0)   # heroes AND the hire
+    award_battle_xp(w, False)                           # a loss feeds no one
+    assert w.progress[rec["rid"]]["xp"] == xp0[rec["rid"]] + 280

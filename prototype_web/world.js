@@ -73,6 +73,49 @@ const R_TRAIT = { shenli:"天生神力", tiefei:"铁肺", hanyong:"悍勇", danq
 const R_ATTRS = ["hp","skill","dfn","resolve","init","breath"];
 const R_ANAME = { hp:"血", skill:"武艺", dfn:"招架", resolve:"胆识", init:"先手", breath:"气力" };
 const R_REFRESH = 6, R_POOL = 4;
+
+/* ---- leveling (port of sim/progress.py): baseline, cap, star-fed growth ---- */
+const MAX_LEVEL = 11;
+const LEVEL_XP = [0, 0, 200, 550, 1050, 1750, 2700, 3950, 5550, 7550, 10000, 15000];
+const GROW = { hp:{per:[3,5],room:55}, breath:{per:[3,5],room:50}, skill:{per:[1,3],room:28},
+               resolve:{per:[2,4],room:40}, init:{per:[2,4],room:40}, dfn:{per:[1,2],room:16} };
+const BATTLE_XP = 280, HERO_LEVEL = 3;
+const HERO_BASE = {
+  wang: { stats:{hp:55,skill:62,dfn:10,resolve:48,init:96,breath:87}, talents:{skill:2} },
+  liu:  { stats:{hp:60,skill:60,dfn:6,resolve:45,init:104,breath:87}, talents:{skill:1,init:1} },
+  shi:  { stats:{hp:65,skill:58,dfn:5,resolve:50,init:90,breath:93}, talents:{hp:2} },
+  yan:  { stats:{hp:45,skill:56,dfn:8,resolve:42,init:112,breath:94}, talents:{init:2} },
+};
+function levelForXp(xp){let l=1;for(let L=2;L<=MAX_LEVEL;L++)if(xp>=LEVEL_XP[L])l=L;return l;}
+function newProgress(base, talents, level){
+  level = level || 1;
+  return { level, xp: LEVEL_XP[level], stats: Object.assign({}, base),
+           base: Object.assign({}, base), talents: Object.assign({}, talents), revealed: [] };
+}
+const capOf = (p, a) => p.base[a] + GROW[a].room;
+const starsOf = (p, a) => p.talents[a] || 0;
+function levelUp(p, rng){
+  const ranked = R_ATTRS.slice().sort((x, y) => {
+    const wx = (1 + starsOf(p,x)*4) * (capOf(p,x) > p.stats[x] ? 1 : 0) + (capOf(p,x)-p.stats[x])*0.01;
+    const wy = (1 + starsOf(p,y)*4) * (capOf(p,y) > p.stats[y] ? 1 : 0) + (capOf(p,y)-p.stats[y])*0.01;
+    return (wy - wx) || (rng.next() - 0.5);
+  });
+  for (const a of ranked.filter((a)=>capOf(p,a) > p.stats[a]).slice(0,3)) {
+    let g = rng.int(GROW[a].per[0], GROW[a].per[1] + starsOf(p,a));
+    g = Math.min(g, capOf(p,a) - p.stats[a]);
+    if (g <= 0) continue;
+    p.stats[a] += g;
+    if (starsOf(p,a) && !p.revealed.includes(a)) p.revealed.push(a);
+  }
+  p.level += 1;
+}
+function awardXp(p, amount, rng){
+  p.xp += amount;
+  const target = levelForXp(p.xp);
+  let n = 0;
+  while (p.level < target) { levelUp(p, rng); n++; }
+  return n;
+}
 const R_WAGEADJ = { jiujiu:1, tanlan:2 };
 
 function strSeed(s){let h=2166136261>>>0;for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,16777619);}return h>>>0;}
@@ -212,7 +255,7 @@ function saveState() {
   try {
     localStorage.setItem(STORE(), JSON.stringify({
       v: 2, day: world.day, provisions: world.provisions, party: world.party,
-      infamy: world.infamy, members: world.members, gold2: true,
+      infamy: world.infamy, members: world.members, progress: world.progress, gold2: true,
       gold: world.gold, gear: world.gear, contract: world.contract,
       rngState, spotted: [...world.spotted], destroyed: [...world.destroyed],
       parties: world.parties.map((p) => ({ pid: p.pid, pos: p.pos, leg: p.leg, alive: p.alive })),
@@ -230,6 +273,7 @@ function restoreState() {
   world.infamy = s.infamy || 0;
   world.members = Array.isArray(s.members) ? s.members.filter(
     (m) => m && typeof m.wage === "number" && m.name) : [];
+  if (s.progress && typeof s.progress === "object") world.progress = s.progress;
   world.party = s.party.slice();
   world.gold = s.gold;
   world.contract = s.contract || null;
@@ -294,6 +338,15 @@ function applyBattleResult(resOverride) {
     }
   }
   const win = res.winner === "player";
+  if (win) {                                            // combat-fed leveling
+    const rng = makeRng(`xp:${spec.id}:${world.day}:${world.gold}`);
+    for (const cid of Object.keys(world.progress)) {
+      const before = world.progress[cid].level;
+      awardXp(world.progress[cid], BATTLE_XP, rng);
+      if (world.progress[cid].level > before)
+        log(`第${world.day}日 · ${cid} 升至 ${world.progress[cid].level} 级！`, "b");
+    }
+  }
   if (pend.kind === "assault") {
     const lair = settlements.get(pend.target);
     if (win && lair) {
@@ -467,6 +520,10 @@ function buildWorld() {
     const k = key(s.at[0], s.at[1]);
     if (!tiles.has(k) || COST[tiles.get(k).terrain] == null) throw new Error(`要隘 ${s.id} 落在图外或不可入`);
     sites.set(s.id, s);
+  }
+  for (const hid of CORE_ROSTER) {
+    const h = HERO_BASE[hid];
+    world.progress[hid] = newProgress(h.stats, h.talents, HERO_LEVEL);
   }
 }
 
@@ -810,15 +867,24 @@ function launchBattle(pend) {
     wrap.style.cssText = "position:fixed;inset:0;z-index:50;background:#1d1a15;";
     const f = document.createElement("iframe");
     f.style.cssText = "width:100%;height:100%;border:0;";
+    const lv = battleLevels();
     const inject = `<script>window.__SJ_SCEN=${JSON.stringify(pend.scenario)};window.__SJ_CAMPAIGN=1;` +
-      `window.__SJ_GEAR=${JSON.stringify(world.gear)};<\/script>`;
+      `window.__SJ_GEAR=${JSON.stringify(world.gear)};window.__SJ_LEVELS=${JSON.stringify(lv)};<\/script>`;
     f.srcdoc = EMBEDDED_BATTLE.replace("<script>", inject + "<script>");
     wrap.appendChild(f);
     document.body.appendChild(wrap);
   } else {
-    try { localStorage.setItem("sj_gear", JSON.stringify(world.gear)); } catch (e) {}
+    try {
+      localStorage.setItem("sj_gear", JSON.stringify(world.gear));
+      localStorage.setItem("sj_levels", JSON.stringify(battleLevels()));
+    } catch (e) {}
     location.href = "index.html?scenario=" + pend.scenario + "&campaign=1";
   }
+}
+function battleLevels() {
+  const out = {};
+  for (const cid of Object.keys(world.progress)) out[cid] = world.progress[cid].stats;
+  return out;
 }
 window.__sjBattleVerdict = (res) => { frameVerdict = res; };
 window.__sjCloseBattle = () => {
@@ -1074,6 +1140,20 @@ function renderCity() {
           `<button onclick="uiBuy()" ${canBuy ? "" : "disabled"}>` +
           (canBuy ? `买粮${canBuy}日 · ${canBuy * price}两`
                   : need ? "银两不足" : "粮草已满") + `</button></div></details>`;
+  // 校阅: the roster's standing — level, xp, and stat/cap with revealed stars
+  {
+    let rrows = "";
+    const line = (cid, label) => {
+      const p = world.progress[cid]; if (!p) return "";
+      const stat = R_ATTRS.map((a) => `${R_ANAME[a]}${p.stats[a]}/${capOf(p,a)}` +
+        (p.revealed.includes(a) ? "★".repeat(starsOf(p,a)) : "")).join(" ");
+      const tn = p.level >= MAX_LEVEL ? "满" : (LEVEL_XP[p.level+1] - p.xp) + "经验";
+      return `<div class="leaf" style="font-size:11px"><b>${label}</b> Lv${p.level}（${tn}）<br>${stat}</div>`;
+    };
+    for (const hid of CORE_ROSTER) rrows += line(hid, hid);
+    for (const m of world.members) rrows += line(m.rid, (m.nick?m.nick+"·":"") + m.name);
+    html += `<details data-k="muster"${o("muster", false)}><summary>校阅</summary>${rrows}</details>`;
+  }
   html += `<details data-k="jobs"${o("jobs", true)}><summary>镖单</summary>`;
   const board = cityJobs();
   if (!board.length) html += `<div class="leaf">暂无镖单</div>`;
@@ -1199,6 +1279,7 @@ window.uiHire = (rid) => {
   if (!r || world.gold < r.fee) return;
   world.gold -= r.fee;
   world.members.push(Object.assign({}, r));
+  world.progress[r.rid] = newProgress(r.stats, r.talents, 1);
   world._pool.list = world._pool.list.filter((x) => x.rid !== rid);
   log(`第${world.day}日 · ${r.nick}·${r.name}（${r.bg_name}）入伙，雇金${r.fee}两`, "b");
   refresh();
@@ -1206,6 +1287,7 @@ window.uiHire = (rid) => {
 window.uiFire = (i) => {
   if (i >= 0 && i < world.members.length) {
     const m = world.members.splice(i, 1)[0];
+    delete world.progress[m.rid];
     world.provisions = Math.min(world.provisions, capacity());
     log(`第${world.day}日 · 遣散${m.name}`, "sys");
   }

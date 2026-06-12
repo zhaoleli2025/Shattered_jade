@@ -139,9 +139,11 @@ def tiles_from_spec(m):
     return tiles
 
 
-def load_scenario(scen_id, seed=0, gear=None):
+def load_scenario(scen_id, seed=0, gear=None, levels=None):
     """Build a battle from scenarios/<id>.json — same file the browser fetches.
-    gear: campaign quality slots per player hero (overrides the scenario's)."""
+    gear: campaign quality slots per player hero (overrides the scenario's).
+    levels: campaign-grown stats per player hero {id: {hp,skill,dfn,resolve,
+    init,breath}} — a veteran deploys stronger than his template."""
     path = os.path.join(SCENARIO_DIR, scen_id + ".json")
     with open(path, encoding="utf-8") as f:
         spec = json.load(f)
@@ -163,6 +165,14 @@ def load_scenario(scen_id, seed=0, gear=None):
             su = {**su, **{k: g[k] for k in QUALITY_KEYS if k in g}}
             cond = g                          # the smith's work rides to war
         u = make_unit(tpl_by_id[su["id"]], *su["spawn"], overrides=su)
+        # the leveled veteran: grown stats override the template
+        if levels and tpl_by_id[su["id"]]["side"] == "player" and su["id"] in levels:
+            lv, tpl0 = levels[su["id"]], tpl_by_id[su["id"]]
+            carry = tpl0["breath_base"] - u.breath_max     # gear 坠气, preserved
+            u.hp_max = lv["hp"]; u.hp = lv["hp"]
+            u.skill = lv["skill"]; u.dfn = lv["dfn"]; u.resolve = lv["resolve"]
+            u.init_base = lv["init"]
+            u.breath_max = max(1, lv["breath"] - carry); u.breath = u.breath_max
         # ...and so do the dents and the dulled edges (campaign condition)
         tpl = tpl_by_id[su["id"]]
         for key, which in (("wpn_dura", "wpn"), ("wpn2_dura", "wpn2")):

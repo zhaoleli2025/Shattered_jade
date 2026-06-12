@@ -20,6 +20,7 @@ import os
 from dataclasses import dataclass, field
 
 from . import data
+from . import progress as pg
 from . import recruit as rc
 from .hexmath import hex_dist, neighbors
 from .rng import Streams
@@ -60,6 +61,10 @@ INFAMY_PRICED = 3      # ≥: markets gouge (×1.5), the 镖单 thins to one off
 INFAMY_HUNTED = 6      # ≥: no jobs at all, and the 缉捕官军 rides out
 ATONE_RATE = 40        # 两 per point of 恶名, paid at a city 衙门
 REPAIR_RATE = 3        # points of armor/edge made whole per 两 (city or town)
+BATTLE_XP = 280        # combat earnings to each roster fighter on a won battle
+HERO_LEVEL = 3         # the named hands ride out seasoned (DESIGN: military bg)
+_HERO_STARS = {"wang": {"skill": 2}, "liu": {"skill": 1, "init": 1},
+               "shi": {"hp": 2}, "yan": {"init": 2}}   # signature talents
 SMITH_PRICE = {"liang": 100, "jing": 250, "zhen": 600, "shen": 1500}
 GEAR_SLOTS = ("wpn_q", "wpn2_q", "armor_q", "helmet_q")
 
@@ -111,6 +116,7 @@ class WorldState:
     infamy: int = 0                             # 恶名 — the yamen remembers
     roster: list = field(default_factory=lambda: list(CORE_ROSTER))
     members: list = field(default_factory=list)  # hired hands: {name, kind, wage}
+    progress: dict = field(default_factory=dict)  # id -> leveling record
 
     def headcount(self):
         return len(self.roster) + len(self.members)
@@ -210,6 +216,13 @@ def load_world(world_id, seed=0):
     world.gear = {tpl["id"]: {k: tpl[k] for k in GEAR_SLOTS if tpl.get(k)}
                   for tpl in data.ROSTER if tpl["side"] == "player"}
     world.provisions = world.capacity()   # ride out with full packs
+    hero = {h["id"]: h for h in data.ROSTER}
+    for hid in CORE_ROSTER:
+        h = hero[hid]
+        base = dict(hp=h["hp_max"], skill=h["skill"], dfn=h["dfn"],
+                    resolve=h["resolve"], init=h["init_base"], breath=h["breath_base"])
+        world.progress[hid] = pg.new_progress(base, _HERO_STARS.get(hid, {}),
+                                              level=HERO_LEVEL)
     _spot(world)  # what the bureau can see from the gate on day one
     return world
 
@@ -421,6 +434,28 @@ def fail_contract(world):
         world.contract = None
 
 
+def award_battle_xp(world, won):
+    """Won battles feed every roster fighter (DESIGN §4.4: combat-only XP).
+    Returns {id: new_level} for those who leveled, for the log."""
+    if not won:
+        return {}
+    rng = world.rng._streams["worldgen"]
+    leveled = {}
+    for cid, prog in world.progress.items():
+        before = prog["level"]
+        pg.award_xp(prog, BATTLE_XP, rng)
+        if prog["level"] > before:
+            leveled[cid] = prog["level"]
+    world.emit("xp", leveled=leveled)
+    return leveled
+
+
+def battle_levels(world):
+    """The grown stats each roster fighter brings to the field — fed to
+    load_scenario so a veteran 王铁枪 deploys stronger than his template."""
+    return {cid: dict(prog["stats"]) for cid, prog in world.progress.items()}
+
+
 def battle_wear(world, battle_state):
     """After a campaign battle the dents and dulled edges ride home: armor
     damage accumulates, weapon durability carries, until the smith mends it."""
@@ -523,6 +558,7 @@ def hire(world, rid):
         return False
     world.gold -= rec["fee"]
     world.members.append(dict(rec))           # the full character rides along
+    world.progress[rec["rid"]] = pg.new_progress(rec["stats"], rec["talents"])
     world._pool[1].remove(rec)                # gone from the board
     world.emit("hired", name=rec["name"], nick=rec["nick"],
                bg=rec["bg_name"], fee=rec["fee"])
@@ -534,6 +570,7 @@ def dismiss(world, index):
     if not (0 <= index < len(world.members)):
         return False
     m = world.members.pop(index)
+    world.progress.pop(m.get("rid"), None)
     world.provisions = min(world.provisions, world.capacity())  # fewer packs
     world.emit("dismissed", name=m["name"])
     return True

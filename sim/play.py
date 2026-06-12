@@ -23,6 +23,8 @@ from .overworld import (atone, battle_wear, camp, dismiss, exam, fail_contract,
                         smith_upgrade, take_job, travel, waylay,
                         dijkstra as wdijkstra, render as wrender)
 from . import recruit as rc
+from . import progress as pg
+from .overworld import award_battle_xp, battle_levels
 from .pathfind import dijkstra
 from .rules import hit_breakdown
 from .state import load_scenario
@@ -151,7 +153,8 @@ def human_turn(state, u):
 
 
 def play_battle(scen_id, seed=0, gear=None, world=None):
-    s = load_scenario(scen_id, seed, gear=gear)
+    levels = battle_levels(world) if world is not None else None
+    s = load_scenario(scen_id, seed, gear=gear, levels=levels)
     say(f"\n════ {scen_id} · seed {seed} ════")
     r = run_battle(s, {"player": human_turn, "enemy": ai_turn})
     say("\n" + render(s))
@@ -159,6 +162,9 @@ def play_battle(scen_id, seed=0, gear=None, world=None):
         f"{r['rounds']}回合 · 阵亡 {len(r['dead'])} · 溃走 {len(r['escaped'])} ══")
     if world is not None:
         battle_wear(world, s)              # the dents ride home
+        leveled = award_battle_xp(world, r["winner"] == "player")
+        for cid, lv in leveled.items():
+            say(f"  ⤴ {cid} 升至 {lv} 级！")
     return r["winner"]
 
 
@@ -292,9 +298,14 @@ def play_campaign(world_id="hebei", seed=0):
             n = market_buy(w)
             say(f"  市集购粮{n}。" if n else "  此地无市，或银两不济。")
         elif op == "roster":
-            say(f"  核心 {len(w.roster)} 人：{'、'.join(w.roster)}")
+            for cid in w.roster:
+                sh = pg.sheet(w.progress[cid])
+                say(f"  {cid} Lv{sh['level']}（距下级{sh['to_next']}经验）"
+                    f" {' '.join(sh['rows'])}")
             for i, m in enumerate(w.members, 1):
-                say(f"  [{i}] {m['name']}（饷{m['wage']}两/日）")
+                pr = w.progress.get(m.get("rid"))
+                lvl = f"Lv{pr['level']}" if pr else ""
+                say(f"  [{i}] {m.get('nick','')}·{m['name']}（{m.get('bg_name','')} {lvl} 饷{m['wage']}）")
             if not w.members:
                 say("  尚无雇员。")
         elif op == "enlist":
