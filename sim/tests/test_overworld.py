@@ -395,3 +395,41 @@ def test_zhuozhou_sealed_behind_the_juma_crossings():
     costs, _ = dijkstra(w, w.party)
     assert w.settlements["zhuozhou"]["at"] not in costs
     assert w.settlements["yingzhou"]["at"] in costs
+
+
+def test_infamy_gouges_thins_then_hunts():
+    """劫道 has consequences: prices gouge, the 镖单 thins, the writ goes out,
+    and the 衙门 will settle it — for silver."""
+    from sim.hexmath import hex_dist, neighbors
+    from sim.overworld import (INFAMY_HUNTED, atone, camp, jobs, market_buy,
+                               plunder, waylay)
+    w = W()
+    nk = lambda: next(k for k in neighbors(*w.party) if w.tiles[k].cost is not None)
+    car = next(p for p in w.parties if p.kind == "caravan")
+    car.pos = nk()
+    waylay(w, car.pid); plunder(w, car.pid)
+    assert w.infamy == 3
+    assert len([j for j in jobs(w) if j["kind"] == "escort"]) == 1   # board thins
+    w.provisions, gold0 = 0, w.gold
+    assert market_buy(w, days=2) == 2
+    assert gold0 - w.gold == 2 * 3                  # city price 2 → gouged 3
+    pat = next(p for p in w.parties if p.kind == "patrol")
+    pat.pos = nk()
+    waylay(w, pat.pid); plunder(w, pat.pid)
+    assert w.infamy >= INFAMY_HUNTED
+    assert jobs(w) == []                            # nobody bonds cargo to the hunted
+    camp(w)                                         # dusk: the writ goes out
+    hunter = next(p for p in w.parties if p.kind == "hunter" and p.alive)
+    assert hunter.hostile and hex_dist(hunter.pos, w.party) <= 9
+    w.gold = 1000
+    assert atone(w) == w.infamy * 0 + 7 * 40        # 衙门: 赎罪银
+    assert w.infamy == 0
+
+
+def test_marsh_slows_but_carries():
+    w = W()
+    marsh = [t for t in w.tiles.values() if t.terrain == "marsh"]
+    assert len(marsh) > 30 and all(t.cost == 4 for t in marsh)
+    lair = w.settlements["dian_lair"]               # the 水寨 hides in the 淀
+    costs, _ = dijkstra(w, w.party)
+    assert tuple(lair["at"]) in costs

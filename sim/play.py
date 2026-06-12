@@ -17,9 +17,9 @@ from .ai import ai_turn
 from .commands import Stance, Strike, Swap, resolve, targets_of
 from .engine import run_battle
 from .hexmath import hex_dist
-from .overworld import (camp, fail_contract, jobs, load_world, market_buy,
-                        plunder, raze, smith_upgrade, take_job, travel, waylay,
-                        dijkstra as wdijkstra, render as wrender)
+from .overworld import (atone, camp, fail_contract, jobs, load_world,
+                        market_buy, plunder, raze, smith_upgrade, take_job,
+                        travel, waylay, dijkstra as wdijkstra, render as wrender)
 from .pathfind import dijkstra
 from .rules import hit_breakdown
 from .state import load_scenario
@@ -165,6 +165,7 @@ WORLD_HELP = """\
   take N   接第 N 单      smith 人 部位   铁匠铺升品 (如: smith wang wpn_q)
   map      重看舆图       who       已发现的队伍
   raid N   劫掠身边的商队/巡骑（who 列表第 N 个）
+  atone    在大城衙门交赎罪银，洗清恶名
   q        收兵退出       ?         帮助"""
 
 
@@ -174,6 +175,7 @@ def world_status(w):
     s = w.at_settlement()
     fan = f"（{s['fanzhen']}）" if s and s.get("fanzhen") else ""
     job = f" · 镖单:{w.contract['name']}" if w.contract else ""
+    job += f" · 恶名{w.infamy}" if w.infamy else ""
     say(f"\n—— 第{w.day}日 · 银{w.gold}两 · 粮草{w.provisions} · "
         f"{(s['name'] + fan if s else '野外')}{job} ——")
 
@@ -272,6 +274,10 @@ def play_campaign(world_id="hebei", seed=0):
             enc = camp(w)
             if enc:
                 fight_encounter(w, "encounter", enc.pid)
+        elif op == "atone":
+            cost = atone(w)
+            say(f"  赎罪银{cost}两已纳，恶名洗清。" if cost
+                else "  衙门只在大城，或无恶名/银两不济。")
         elif op == "buy":
             n = market_buy(w)
             say(f"  市集购粮{n}日。" if n else "  此地无市，或银两不济。")

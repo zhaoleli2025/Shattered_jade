@@ -1,4 +1,4 @@
-# Shattered Jade (碎玉) — Design Document v0.37
+# Shattered Jade (碎玉) — Design Document v0.38
 
 > **Title: Shattered Jade (碎玉)** — final, 2026-06-11. 宁为玉碎，不为瓦全 ("better
 > shattered jade than intact tile"): the permadeath creed in two characters — your
@@ -952,6 +952,21 @@ timelines are how side projects die — hitting month 6 still in M1 is *on pace*
 ---
 
 ## 10. Changelog
+
+**v0.38 (2026-06-12)** — **the map deepens** (user-picked batch: 水网+白洋淀 ·
+活地图 · 衙门 · more 寨子; seasons shelved). (1) **水网**: the 沙河 north of
+定州 and the 唐河 beyond it join the map with derived 渡口; the **白洋淀·文安洼
+marshes** arrive as a new terrain (沼, cost 4 — slow but passable), hiding the
+**苇荡水寇** in their reed-bank 水寨 (assault = the water fight). (2) **活地图**:
+长芦盐纲 salt caravan out of 沧州, a 辽境巡骑 on their side of the line, the
+**南山寨** band in the southern hills, 真定北驿/临洺驿 post stations, and five
+more villages (无极·柏乡·临城·饶阳·武邑) — 29 settlements, 10 parties.
+(3) **衙门 + 恶名**: plundering now accrues infamy (商队+3, 巡骑+4). At 恶名≥3
+markets gouge (×1.5) and the 镖单 thins to one offer; at ≥6 nobody bonds cargo
+and the 藩镇 issues a writ — a 缉捕官军 (捕) rides out from the nearest city
+and marches on the column every day until beaten… and another takes its place.
+The city 衙门 settles it: 赎罪银 = 恶名×40两. Sim/terminal (`atone`)/web (衙门
+drawer folder, HUD 恶名·被缉捕 badge) all mirrored. 126 tests green.
 
 **v0.37 (2026-06-12)** — **the verification pass lands** (2-agent adversarial
 review of the geo map + web UI; the road bug and 10 confirmed edges fixed).

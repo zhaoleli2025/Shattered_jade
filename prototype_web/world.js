@@ -85,21 +85,23 @@ function seedGear() {
 }
 
 const COST = { road: 1, bridge: 1, settlement: 1, plain: 2, ford: 2,
-               hills: 3, forest: 3, water: null, mountains: null };
-const HOSTILE = new Set(["bandit", "raider"]);
+               hills: 3, forest: 3, marsh: 4, water: null, mountains: null };
+const HOSTILE = new Set(["bandit", "raider", "hunter"]);
+const WAYLAY_INFAMY = { caravan: 3, patrol: 4 };
+const INFAMY_PRICED = 3, INFAMY_HUNTED = 6, ATONE_RATE = 40;
 const FRIENDLY_KINDS = new Set(["city", "town", "village"]);
 
 const KIND_GLYPH = { city: "◎", town: "○", village: "村", stronghold: "寨", occupied: "辽" };
-const PARTY_GLYPH = { bandit: "匪", caravan: "商", patrol: "巡", raider: "骑" };
-const PARTY_FILL = { bandit: "#8c2f1b", caravan: "#b8860b", patrol: "#3d7ea6", raider: "#641c10" };
+const PARTY_GLYPH = { bandit: "匪", caravan: "商", patrol: "巡", raider: "骑", hunter: "捕" };
+const PARTY_FILL = { bandit: "#8c2f1b", caravan: "#b8860b", patrol: "#3d7ea6", raider: "#641c10", hunter: "#3a2f28" };
 const KIND_FILL = { city: "#2b2620", town: "#4a4337", village: "#5e553f",
                     stronghold: "#6e3328", occupied: "#8c2f1b" };
-const TERRAIN_GLYPH = { hills: "山", forest: "林", ford: "渡", bridge: "桥", mountains: "峰" };
+const TERRAIN_GLYPH = { hills: "山", forest: "林", ford: "渡", bridge: "桥", mountains: "峰", marsh: "沼" };
 /* battle TERRAIN_FILL palette, extended with mountains and a river blue */
 const TERRAIN_FILL = { plain: "#d8d2b0", forest: "#aab48c", hills: "#d9c79a", road: "#cdb488",
                        settlement: "#cdb488", bridge: "#c2a878", ford: "#bccbc4",
-                       water: "#9cbecb", mountains: "#9b8d75" };
-const TERRAIN_NAME = { plain: "旷野", road: "官道", hills: "丘陵", forest: "林间", water: "大河",
+                       water: "#9cbecb", mountains: "#9b8d75", marsh: "#a9bda6" };
+const TERRAIN_NAME = { plain: "旷野", road: "官道", hills: "丘陵", forest: "林间", water: "大河", marsh: "苇荡",
                        ford: "渡口", bridge: "桥头", mountains: "层峦", settlement: "市镇" };
 const SCEN_NAME = { jiebiao: "劫镖 · 山道伏击", shouqiao: "守桥 · 断后之战",
                     duijue: "对决 · 黑风三煞", gongzhai: "攻寨 · 强袭山寨", juma: "血战 · 拒马河" };
@@ -136,6 +138,7 @@ function saveState() {
   try {
     localStorage.setItem(STORE(), JSON.stringify({
       v: 2, day: world.day, provisions: world.provisions, party: world.party,
+      infamy: world.infamy, gold2: true,
       gold: world.gold, gear: world.gear, contract: world.contract,
       rngState, spotted: [...world.spotted], destroyed: [...world.destroyed],
       parties: world.parties.map((p) => ({ pid: p.pid, pos: p.pos, leg: p.leg, alive: p.alive })),
@@ -150,6 +153,7 @@ function restoreState() {
   if (!s || s.v !== 2) return false;   // pre-economy saves are discarded
   world.day = s.day;
   world.provisions = s.provisions;
+  world.infamy = s.infamy || 0;
   world.party = s.party.slice();
   world.gold = s.gold;
   world.contract = s.contract || null;
@@ -213,7 +217,8 @@ function applyBattleResult(resOverride) {
       p.alive = false;
       const pay = WAYLAY_LOOT[p.kind] || 0;
       world.gold += pay;
-      log(`第${world.day}日 · 劫了${p.name}，掠得${pay}两——官府闻之必怒`, "r");
+      world.infamy += WAYLAY_INFAMY[p.kind] || 0;
+      log(`第${world.day}日 · 劫了${p.name}，掠得${pay}两——恶名+${WAYLAY_INFAMY[p.kind] || 0}（现${world.infamy}）`, "r");
     } else if (!win) {
       failContract();
       const b = retreatToFriendly();
@@ -323,7 +328,7 @@ function initCamera() {
 /* ---------------- world build (load_world) ---------------- */
 function buildWorld() {
   const marked = {};
-  for (const kind of ["hills", "mountains", "forest", "river", "ford", "bridge", "road"])
+  for (const kind of ["hills", "mountains", "marsh", "forest", "river", "ford", "bridge", "road"])
     marked[kind] = new Set((spec.map[kind] || []).map((k) => key(k[0], k[1])));
   tiles.clear(); settlements.clear(); sites.clear();
   for (let r = 0; r < spec.rows; r++) {
@@ -332,6 +337,7 @@ function buildWorld() {
       let terrain = "plain";            // later marks override earlier ones
       if (marked.hills.has(k)) terrain = "hills";
       if (marked.mountains.has(k)) terrain = "mountains";
+      if (marked.marsh.has(k)) terrain = "marsh";
       if (marked.forest.has(k)) terrain = "forest";
       if (marked.road.has(k)) terrain = "road"; // a road mark carves the pass
       if (marked.river.has(k)) terrain = "water";
@@ -486,6 +492,8 @@ function tickParties() {
       }
       const pool = roads.concat(roads, cands);   // roads weighted 3× in total
       p.pos = pOf(pool[Math.floor(rnd() * pool.length)]);
+    } else if (p.kind === "hunter") {
+      stepToward(p, world.party);              // the writ names the bureau
     } else if (p.route.length) {
       const dest = settlements.get(p.route[p.leg]).at;
       stepToward(p, dest);
@@ -530,7 +538,8 @@ function tradePost() {
 function marketBuy() {
   const s = tradePost();
   if (!s) return 0;
-  const price = PROVISION_PRICE[s.kind];
+  let price = PROVISION_PRICE[s.kind];
+  if (world.infamy >= INFAMY_PRICED) price += (price + 1) >> 1;  // outlaws pay more
   const need = PROVISIONS_MAX - world.provisions;
   const n = Math.max(0, Math.min(need, Math.floor(world.gold / price)));
   if (n) {
@@ -545,14 +554,14 @@ function marketBuy() {
    standing lair. Deterministic: no dice, the map IS the job board (jobs) */
 function cityJobs() {
   const s = tradePost();
-  if (!s) return [];
+  if (!s || world.infamy >= INFAMY_HUNTED) return [];  // nobody bonds to the hunted
   const { costs } = dijkstra(world.party);
   const out = [];
   const dests = [...settlements.values()]
     .filter((x) => x.id !== s.id && (x.kind === "city" || x.kind === "town")
       && !world.destroyed.has(x.id) && costs.has(key(x.at[0], x.at[1])))
     .sort((a, b) => costs.get(key(a.at[0], a.at[1])) - costs.get(key(b.at[0], b.at[1])))
-    .slice(0, 3);
+    .slice(0, world.infamy >= INFAMY_PRICED ? 1 : 3);
   for (const d of dests) {
     const days = Math.max(1, Math.ceil(costs.get(key(d.at[0], d.at[1])) / MOVE_PER_DAY));
     out.push({ kind: "escort", to: d.id, name: `押镖至${d.name}`,
@@ -636,8 +645,23 @@ function offerWaylay(p) {
 }
 
 /* shared end-of-day bookkeeping; returns the interceptor, if any */
+function spawnHunter() {
+  if (world.infamy < INFAMY_HUNTED) return;
+  if (world.parties.some((p) => p.kind === "hunter" && p.alive)) return;
+  const cities = [...settlements.values()].filter(
+    (s) => s.kind === "city" && !world.destroyed.has(s.id));
+  if (!cities.length) return;
+  const src = cities.reduce((m, s) => hexDist(s.at, world.party) < hexDist(m.at, world.party) ? s : m);
+  world.parties.push({ pid: "hunter_" + world.day, name: "缉捕官军", kind: "hunter",
+                       pos: src.at.slice(), speed: 9, route: [], home: null,
+                       prowl: 0, leg: 0, alive: true });
+  world.spotted.add("hunter_" + world.day);
+  log(`第${world.day}日 · 官府出了海捕文书——缉捕官军自${src.name}出动！`, "r");
+}
+
 function dusk() {
   burnRation();
+  spawnHunter();
   tickParties();
   spot();
   const p = hostileInReach();
@@ -914,7 +938,8 @@ function updateBar() {
   document.getElementById("provlabel").textContent = `粮草 ${world.provisions}/${PROVISIONS_MAX}`;
   document.getElementById("goldlabel").textContent = `银两 ${world.gold}`;
   document.getElementById("contractlabel").textContent =
-    world.contract ? `镖单·${world.contract.name}` : "";
+    (world.contract ? `镖单·${world.contract.name}` : "") +
+    (world.infamy ? `　恶名 ${world.infamy}${world.infamy >= INFAMY_HUNTED ? "·被缉捕" : ""}` : "");
   const s0 = settlementAt(world.party);
   document.getElementById("loclabel").textContent = locName(world.party) +
     (s0 && s0.fanzhen && (!s0.hidden || world.spotted.has(s0.id)) ? `（${s0.fanzhen}）` : "");
@@ -960,6 +985,13 @@ function renderCity() {
   });
   if (world.contract) html += `<div class="leaf" style="color:#c9bda0">在身：${world.contract.name}</div>`;
   html += `</details>`;
+  if (s.kind === "city" && world.infamy > 0) {
+    const cost = world.infamy * ATONE_RATE;
+    html += `<details data-k="yamen" open><summary>衙门</summary>` +
+            `<div class="leaf">恶名 ${world.infamy} · 海捕${world.infamy >= INFAMY_HUNTED ? "已发" : "未发"}<br>` +
+            `<button onclick="uiAtone()" ${world.gold < cost ? "disabled" : ""}>` +
+            `纳赎罪银 ${cost}两</button></div></details>`;
+  }
   if (s.kind === "city") {
     html += `<details data-k="smith"${o("smith", false)}><summary>铁匠铺</summary>`;
     for (const hero of HEROES) {
@@ -988,6 +1020,15 @@ function renderCity() {
   el.style.display = "block";
 }
 window.uiBuy = () => { marketBuy(); refresh(); };
+window.uiAtone = () => {
+  const cost = world.infamy * ATONE_RATE;
+  if (world.gold >= cost && world.infamy > 0) {
+    world.gold -= cost;
+    log(`第${world.day}日 · 衙门纳赎罪银${cost}两，恶名洗清`, "sys");
+    world.infamy = 0;
+  }
+  refresh();
+};
 window.uiTake = (i) => { const jb = cityJobs()[i]; if (jb) takeJob(jb); refresh(); };
 window.uiSmith = (uid, slot) => { smithUpgrade(uid, slot); refresh(); };
 window.uiTown = () => { drawerOpen = !drawerOpen; refresh(); };

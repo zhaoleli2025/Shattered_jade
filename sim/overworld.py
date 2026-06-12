@@ -31,11 +31,11 @@ SIGHT = 3            # hexes; +1 ending the day on hills (BB: terrain sets sight
 PROVISIONS_MAX = 12  # days of supplies; refilled overnight in friendly settlements
 
 COST = {"road": 1, "bridge": 1, "settlement": 1, "plain": 2, "ford": 2,
-        "hills": 3, "forest": 3, "water": None, "mountains": None}
+        "hills": 3, "forest": 3, "marsh": 4, "water": None, "mountains": None}
 # mountains are walls (M&B: ranges channel armies through passes); a road
 # mark carves the pass — the only way over a range
 
-HOSTILE = {"bandit", "raider"}
+HOSTILE = {"bandit", "raider", "hunter"}
 FRIENDLY_KINDS = {"city", "town", "village"}   # where the bureau can trade
 
 # ---- the silver economy (M2): markets, escort contracts, the smith ----
@@ -46,6 +46,10 @@ BOUNTY_PAY = 260                                          # 两 per razed lair
 QUALITY_LADDER = ("fan", "liang", "jing", "zhen", "shen")
 WAYLAY_SCEN = {"caravan": "jiebiao", "patrol": "duijue"}  # the bureau turns bandit
 WAYLAY_LOOT = {"caravan": 150, "patrol": 60}
+WAYLAY_INFAMY = {"caravan": 3, "patrol": 4}               # 官府闻之必怒 — and acts
+INFAMY_PRICED = 3      # ≥: markets gouge (×1.5), the 镖单 thins to one offer
+INFAMY_HUNTED = 6      # ≥: no jobs at all, and the 缉捕官军 rides out
+ATONE_RATE = 40        # 两 per point of 恶名, paid at a city 衙门
 SMITH_PRICE = {"liang": 100, "jing": 250, "zhen": 600, "shen": 1500}
 GEAR_SLOTS = ("wpn_q", "wpn2_q", "armor_q", "helmet_q")
 
@@ -94,6 +98,7 @@ class WorldState:
     spotted: set = field(default_factory=set)   # party/lair ids seen at least once
     destroyed: set = field(default_factory=set) # razed lairs
     gold: int = GOLD_START                      # 银两
+    infamy: int = 0                             # 恶名 — the yamen remembers
     gear: dict = field(default_factory=dict)    # hero id -> quality slots
     contract: dict | None = None                # one active job (BB rule)
     events: list = field(default_factory=list)
@@ -112,8 +117,8 @@ def load_world(world_id, seed=0):
     with open(os.path.join(WORLD_DIR, world_id + ".json"), encoding="utf-8") as f:
         spec = json.load(f)
     marked = {kind: {tuple(k) for k in spec["map"].get(kind) or []}
-              for kind in ("hills", "mountains", "forest", "river", "ford",
-                           "bridge", "road")}
+              for kind in ("hills", "mountains", "marsh", "forest", "river",
+                           "ford", "bridge", "road")}
     tiles = {}
     for r in range(spec["rows"]):
         for col in range(spec["cols"]):
@@ -123,6 +128,8 @@ def load_world(world_id, seed=0):
                 terrain = "hills"
             if (q, r) in marked["mountains"]:
                 terrain = "mountains"
+            if (q, r) in marked["marsh"]:
+                terrain = "marsh"
             if (q, r) in marked["forest"]:
                 terrain = "forest"
             if (q, r) in marked["road"]:
@@ -268,6 +275,8 @@ def _tick_parties(world):
             roads = [k for k in cands if world.tiles[k].terrain == "road"]
             pool = roads * 2 + cands      # roads weighted 3× in total
             p.pos = pool[world.rng.rint(0, len(pool) - 1, "worldgen")]
+        elif p.kind == "hunter":
+            _step_toward(world, p, world.party)   # the writ names the bureau
         elif p.route:
             dest = world.settlements[p.route[p.leg]]["at"]
             _step_toward(world, p, dest)
@@ -323,6 +332,8 @@ def market_buy(world, days=None):
     if not s:
         return 0
     price = PROVISION_PRICE[s["kind"]]
+    if world.infamy >= INFAMY_PRICED:
+        price = price + (price + 1) // 2      # outlaws pay gouged prices
     need = PROVISIONS_MAX - world.provisions
     if days is not None:
         need = min(need, days)
@@ -339,8 +350,8 @@ def jobs(world):
     cities/towns, plus a bounty on every discovered, standing lair.
     Deterministic: no dice, the map IS the job board."""
     s = _trade_post(world)
-    if not s:
-        return []
+    if not s or world.infamy >= INFAMY_HUNTED:
+        return []                              # nobody bonds cargo to the hunted
     costs, _prev = dijkstra(world, world.party)
     out = []
     dests = sorted((x for x in world.settlements.values()
@@ -348,7 +359,7 @@ def jobs(world):
                     and x["id"] not in world.destroyed
                     and tuple(x["at"]) in costs),
                    key=lambda x: costs[tuple(x["at"])])[:3]
-    for d in dests:
+    for d in dests[: 1 if world.infamy >= INFAMY_PRICED else 3]:
         days = max(1, -(-costs[tuple(d["at"])] // MOVE_PER_DAY))
         out.append(dict(kind="escort", to=d["id"], name=f"押镖至{d['name']}",
                         pay=days * ESCORT_RATE + 20, days=days))
@@ -396,10 +407,27 @@ def smith_upgrade(world, uid, slot):
     return nxt
 
 
+def _spawn_hunter(world):
+    """恶名满贯: the 藩镇 issues a writ — one 缉捕官军 rides at a time."""
+    if world.infamy < INFAMY_HUNTED:
+        return
+    if any(p.kind == "hunter" and p.alive for p in world.parties):
+        return
+    cities = [s for s in world.settlements.values()
+              if s["kind"] == "city" and s["id"] not in world.destroyed]
+    if not cities:
+        return
+    src = min(cities, key=lambda s: hex_dist(s["at"], world.party))
+    world.parties.append(WParty(pid=f"hunter_{world.day}", name="缉捕官军",
+                                kind="hunter", pos=tuple(src["at"]), speed=9))
+    world.emit("hunted", source=src["id"])
+
+
 def _dusk(world):
     """Shared end-of-day bookkeeping, all stamped on the current day.
     Returns the interceptor, if any. The caller turns the clock."""
     _burn_ration(world)
+    _spawn_hunter(world)
     _tick_parties(world)
     _spot(world)
     p = _hostile_in_reach(world)
@@ -473,9 +501,24 @@ def plunder(world, pid):
     p.alive = False
     pay = WAYLAY_LOOT.get(p.kind, 0)
     world.gold += pay
+    world.infamy += WAYLAY_INFAMY.get(p.kind, 0)
     world.emit("plunder", party=pid, name=p.name, pay=pay)
-    world.emit("infamy", reason=f"劫{p.name}")
+    world.emit("infamy", reason=f"劫{p.name}", infamy=world.infamy)
     return pay
+
+
+def atone(world):
+    """衙门 (cities): pay the 赎罪银 and the ledger closes."""
+    s = _trade_post(world)
+    if not s or s["kind"] != "city" or world.infamy <= 0:
+        return 0
+    cost = world.infamy * ATONE_RATE
+    if world.gold < cost:
+        return 0
+    world.gold -= cost
+    world.emit("atoned", cost=cost, infamy=world.infamy)
+    world.infamy = 0
+    return cost
 
 
 def travel(world, dest):
@@ -534,10 +577,12 @@ def travel(world, dest):
 
 
 GLYPH = {"plain": "·", "road": "路", "hills": "山", "forest": "林",
-         "water": "～", "ford": "渡", "bridge": "桥", "mountains": "峰"}
+         "water": "～", "ford": "渡", "bridge": "桥", "mountains": "峰",
+         "marsh": "沼"}
 KIND_GLYPH = {"city": "◎", "town": "○", "village": "村",
               "stronghold": "寨", "occupied": "辽"}
-PARTY_GLYPH = {"bandit": "匪", "caravan": "商", "patrol": "巡", "raider": "骑"}
+PARTY_GLYPH = {"bandit": "匪", "caravan": "商", "patrol": "巡", "raider": "骑",
+               "hunter": "捕"}
 
 
 def render(world):
