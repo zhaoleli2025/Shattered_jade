@@ -9,6 +9,18 @@
 > when the Khitan-backed coup took Luoyang: this game's exact crisis. The realm's own
 > jade, shattered in our era (legendary-artifact hook, F4).
 >
+> **史料 Historical sources** (the canon for places, dates, and 藩镇 facts — when
+> the game and a source disagree, the source wins unless gameplay demands noted
+> license): **《资治通鉴》** 卷280–285 (后晋纪) — the chronological spine: the 936
+> 石敬瑭 compact, the 938 cession handover, frontier raids, and 成德节度使 安重荣's
+> arc at 镇州 (937–941, "天子宁有种耶" — prime campaign material); **《旧五代史》**
+> (晋书 + 列传) — institutional texture: 藩镇 garrisons, offices (节度使/衙内/牙兵),
+> salt and canal administration, the military economy our contracts mimic;
+> **《新五代史》** — 职方考 for which 镇 held which 州 (our fanzhen table is checked
+> against it), 四夷附录 for the Khitan, and Ouyang Xiu's moral framing that flavors
+> event text. Known deliberate licenses: 打草谷 raids appear pre-947, and the named
+> bandit camps are inventions.
+>
 > A hardcore turn-based tactical RPG in the mold of **Battle Brothers**, reskinned and
 > re-grounded in a **wuxia setting modeled on the Five Dynasties (五代, c. 907–960)** —
 > the fractured age between Tang and Song — with the community's best-documented pain

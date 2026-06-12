@@ -11,6 +11,7 @@ Khitan invasion. Every blade has a name; permadeath is permanent: 宁为玉碎�
 | --- | --- |
 | `DESIGN.md` | The design document — source of truth, full versioned changelog |
 | `RESEARCH.md` | Nine consolidated Battle Brothers research digests (the quantitative rules reference) |
+| 史料 | 《资治通鉴》(卷280–285) · 《旧五代史》 · 《新五代史》(职方考/四夷附录) — the historical canon behind places, 藩镇, and events (see DESIGN.md header) |
 | `scenarios/*.json` | Battles as data — read by both the web prototype and the sim |
 | `prototype_web/` | Playable browser battle prototype (no build step) |
 | `sim/` | M0: the engine-agnostic Python combat sim — same rules, pytest-locked, with an AI-vs-AI batch runner |
