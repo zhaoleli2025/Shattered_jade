@@ -1,7 +1,7 @@
 {
   "id": "realm",
   "name": "碎玉 · 天下",
-  "era": "c. 942 · 后晋",
+  "era": "c. 937 · 后晋天福初",
   "note": "Modular region graph: every area is a world/<id>.json plugged in via border exits (sim/overworld.py cross()). 'built' areas load today; 'planned' areas are sockets — author the file in the hebei/henan pattern, register it here, link the exits, and the realm grows. zhongyuan.json is the composed grand-map preview of the whole.",
   "preview": "zhongyuan",
   "pilot": "hebei",

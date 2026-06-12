@@ -41,6 +41,26 @@
   #main { display: flex; flex: 1 1 auto; min-height: 0; }
   #boardwrap { flex: 1 1 auto; overflow: hidden; display: flex; align-items: center; justify-content: center; padding: 4px; position: relative; }
   svg#board { display: block; width: 100%; height: 100%; }
+  #citypanel {
+    position: absolute; left: 10px; bottom: 10px; z-index: 5;
+    display: none; width: 300px; max-height: calc(100% - 20px); overflow-y: auto;
+    background: rgba(43,38,32,.92); color: var(--paper);
+    padding: 8px 12px; font-size: 13px; line-height: 1.55; border-radius: 6px;
+  }
+  #citypanel b { color: #f0d9a6; }
+  #citypanel h4 {
+    margin: 7px 0 3px; font-size: 12px; letter-spacing: 1px; color: #c9bda0;
+    border-bottom: 1px solid rgba(201,189,160,.35); padding-bottom: 2px;
+  }
+  #citypanel button {
+    font-size: 11.5px; padding: 2px 7px; background: #6e5a28; border-radius: 3px;
+  }
+  #citypanel button:hover { background: #846e36; }
+  #citypanel button:disabled { background: #5a544a; color: #9a917f; }
+  #citypanel .job { display: flex; align-items: center; gap: 6px; margin: 3px 0; }
+  #citypanel .job span { flex: 1 1 auto; }
+  #citypanel .hero { margin: 4px 0; }
+  #citypanel .slots { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 2px; }
   #panel {
     flex: 0 0 330px; border-left: 2px solid var(--ink-soft); background: var(--paper-dark);
     display: flex; flex-direction: column; min-height: 0;
@@ -74,6 +94,9 @@
   .slabel { font-size: 8px; fill: #6b6254; text-anchor: middle; pointer-events: none;
             paint-order: stroke; stroke: rgba(236,227,205,.78); stroke-width: 2px;
             font-family: "LXGW WenKai", "Noto Serif SC", serif; }
+  .wlabel { font-size: 26px; fill: rgba(91,83,70,.35); text-anchor: middle;
+            pointer-events: none; letter-spacing: 8px;
+            font-family: "LXGW WenKai", "Noto Serif SC", serif; }
   #overlay {
     position: fixed; inset: 0; background: rgba(40,34,26,.78); display: none;
     align-items: center; justify-content: center; flex-direction: column; gap: 18px;
@@ -98,6 +121,8 @@
   <span class="spacer"></span>
   <span class="stat" id="daylabel">第 1 日</span>
   <span class="stat" id="provlabel">粮草 12/12</span>
+  <span class="stat" id="goldlabel">银两 100</span>
+  <span class="stat" id="contractlabel" style="color:#6b5520"></span>
   <span class="stat" id="loclabel"></span>
   <button id="assault" style="display:none">攻寨</button>
   <button id="campbtn">扎营一日</button>
@@ -105,10 +130,10 @@
   <a class="navlink" href="index.html">战斗原型</a>
 </header>
 <div id="main">
-  <div id="boardwrap"><svg id="board"></svg></div>
+  <div id="boardwrap"><svg id="board"></svg><div id="citypanel"></div></div>
   <div id="panel">
     <h3>移动预览 · 悬停舆图</h3>
-    <div id="hoverinfo">悬停可达之处查看路线与行程，点击即出发。官道日行八格，山林减半；大河层峦不可逾，须寻渡桥关陉。</div>
+    <div id="hoverinfo">悬停可达之处查看路线与行程，点击即出发。拖拽或贴边可挪图，滚轮缩放。官道日行八格，山林减半；大河层峦不可逾，须寻渡桥关陉。粮草须在市集购买。</div>
     <h3>行程日志 · 风尘镖路</h3>
     <div id="log"></div>
   </div>

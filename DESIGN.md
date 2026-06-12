@@ -1,4 +1,4 @@
-# Shattered Jade (碎玉) — Design Document v0.33
+# Shattered Jade (碎玉) — Design Document v0.34
 
 > **Title: Shattered Jade (碎玉)** — final, 2026-06-11. 宁为玉碎，不为瓦全 ("better
 > shattered jade than intact tile"): the permadeath creed in two characters — your
@@ -952,6 +952,24 @@ timelines are how side projects die — hitting month 6 still in M1 is *on pace*
 ---
 
 ## 10. Changelog
+
+**v0.34 (2026-06-12)** — **the 藩镇 economy on a bigger 河北** (built in stages
+with user sign-off: paid food ✓, light defeat cost ✓, numbers as proposed ✓).
+(1) **河北南部 enlarged 24×16 → 34×28** (existing coordinates preserved): the
+southern marches join — 魏州 (天雄军会府) · 贝州 · 邢州 (安国军) · 冀州 — and
+every settlement carries its early-后晋 **藩镇** (成德/义武/横海/天雄/安国/
+卢龙·辽), painted as faint territory captions; era moved to **天福初 (c. 937)**
+across all worlds. (2) **The silver economy** (sim is the law, web mirrors):
+gold starts at 100两; the free provision refill is GONE — the **市集** sells
+粮草 (2-3两/日); the **镖单** posts deterministic escorts (days×40+20两) and
+bounties on discovered lairs (260两), one bond at a time, paid on arrival/
+razing, voided by defeat; the **铁匠铺** (cities only) walks hero gear up the
+品阶 ladder (100/250/600/1500两) — and the smith's work rides into every
+campaign battle via the quality-override machinery (sim load_scenario(gear=),
+web __SJ_GEAR/sj_gear). Terminal game gains buy/jobs/take/smith. (3) **The BB
+camera**: the map no longer fits the screen — drag-to-pan, edge-scrolling,
+wheel zoom anchored at the cursor, view centered on the column. 122 tests
+green.
 
 **v0.33 (2026-06-12)** — **the terminal game** (`python3 -m sim.play`) + cpolar
 tunnel removed (user call: too complicated; the one-file edition and the dev

@@ -1,11 +1,16 @@
-/* 碎玉 Shattered Jade · 舆图 strategic map — faithful JS port of sim/overworld.py v0.3:
+/* 碎玉 Shattered Jade · 舆图 strategic map — faithful JS port of sim/overworld.py:
    fixed campaign hexes (pointy-top, same (col,row)→q convention as game.js), terrain
    move costs (官道/桥/聚落 1, 旷野/渡 2, 丘林 3, 大河层峦不可逾), MOVE_PER_DAY=8,
-   视野 3（+1 于丘陵）, 粮草 12 日且仅友镇可补。Bandits prowl their leash with roads
+   视野 3（+1 于丘陵）。Bandits prowl their leash with roads
    weighted 3×, drawn from a seeded serializable PRNG (mulberry32, ?seed=N) so the
    web world is deterministic and survives page navigation;
    routed parties walk settlement routes by Dijkstra; hidden lairs render as natural
-   ground until spotted; encounter scenario = anchored site → lair's own → terrain table. */
+   ground until spotted; encounter scenario = anchored site → lair's own → terrain table.
+   v0.4 adds the BB camera (drag-pan, edge-scroll, wheel zoom over a board bigger than
+   the screen), 藩镇 territory captions, and the silver economy (sim/overworld.py M2):
+   市集 buys provisions — NO free refill anywhere — 镖单 escorts/bounties (one contract
+   at a time), and the city 铁匠铺 raising hero gear up the 品阶 ladder; the smith's
+   work rides into every campaign battle via __SJ_GEAR / localStorage "sj_gear". */
 
 "use strict";
 
@@ -22,7 +27,7 @@ window.addEventListener("error", (e) => {
 
 /* ---------------- hex math (pointy-top axial, same as game.js) ---------------- */
 const SQRT3 = Math.sqrt(3);
-const HEX = 13; // small hexes: the whole 56×36 region fits one screen
+const HEX = 22; // big hexes: the board outgrows the screen — the camera pans over it
 const DIRS = [[1,0],[1,-1],[0,-1],[-1,0],[-1,1],[0,1]];
 const key = (q, r) => q + "," + r;
 const pOf = (k) => k.split(",").map(Number);
@@ -40,7 +45,44 @@ const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
 /* ---------------- overworld rules (mirrors sim/overworld.py) ---------------- */
 const MOVE_PER_DAY = 8;     // 官道 ~8 hexes/day, open country ~4
 const SIGHT = 3;            // hexes; +1 ending a step on hills
-const PROVISIONS_MAX = 12;  // days of supplies; refilled overnight in friendly settlements
+const PROVISIONS_MAX = 12;  // days of supplies; the market feeds the column — no free refill
+
+/* ---- the silver economy (M2, mirrors sim/overworld.py): markets, escorts, the smith ---- */
+const GOLD_START = 100;
+const PROVISION_PRICE = { city: 2, town: 2, village: 3 };  // 两 per day of 粮草
+const ESCORT_RATE = 40;                                    // 两 per road-day
+const BOUNTY_PAY = 260;                                    // 两 per razed lair
+const QUALITY_LADDER = ["fan", "liang", "jing", "zhen", "shen"];
+const QUALITY_LABEL = { fan: "凡品", liang: "良品", jing: "精品", zhen: "珍品", shen: "神品" };
+const SMITH_PRICE = { liang: 100, jing: 250, zhen: 600, shen: 1500 };
+const GEAR_SLOTS = ["wpn_q", "wpn2_q", "armor_q", "helmet_q"];
+const SLOT_LABEL = { wpn_q: "兵", wpn2_q: "副", armor_q: "甲", helmet_q: "盔" };
+
+/* player roster quality-slot defaults — replicated from game.js rosterTemplates()
+   P(...) templates (sim load_world seeds gear from data.ROSTER the same way).
+   wpn2 marks who carries a sidearm (so the smith offers the wpn2_q slot);
+   smith marks the named heroes the 铁匠铺 serves — militia stay off the anvil. */
+const HEROES = [
+  { id: "wang", name: "王铁枪", wpn2: true, smith: true },
+  { id: "liu",  name: "刘三刀", wpn_q: "jing", smith: true },
+  { id: "shi",  name: "石敢当", smith: true },
+  { id: "yan",  name: "燕小乙", wpn_q: "liang", wpn2: true, smith: true },
+  { id: "chen", name: "陈短矛", smith: true },
+  { id: "he",   name: "何九鞭", smith: true },
+  { id: "lu",   name: "鲁大弩", wpn2: true, smith: true },
+  { id: "zhou", name: "周大刀", smith: true },
+  { id: "xya", name: "乡勇·甲" }, { id: "xyb", name: "乡勇·乙" },
+  { id: "xyc", name: "乡勇·丙" }, { id: "xyd", name: "乡勇·丁" },
+];
+/* the heroes ride out with their template gear; the smith improves on it */
+function seedGear() {
+  const gear = {};
+  for (const t of HEROES) {
+    gear[t.id] = {};
+    for (const k of GEAR_SLOTS) if (t[k]) gear[t.id][k] = t[k];
+  }
+  return gear;
+}
 
 const COST = { road: 1, bridge: 1, settlement: 1, plain: 2, ford: 2,
                hills: 3, forest: 3, water: null, mountains: null };
@@ -68,7 +110,8 @@ const tiles = new Map();        // key -> { q, r, terrain }
 const settlements = new Map();  // id -> spec entry (at: [q,r])
 const sites = new Map();        // id -> spec entry (anchored set-pieces)
 const world = { day: 1, provisions: PROVISIONS_MAX, party: null,
-                parties: [], spotted: new Set(), destroyed: new Set() };
+                parties: [], spotted: new Set(), destroyed: new Set(),
+                gold: GOLD_START, gear: {}, contract: null };
 let dij = null;                 // { costs, prev } from the column's hex
 let busy = false;               // a journey is animating
 let pendingScen = null;         // scenario behind the 开战 button
@@ -91,7 +134,8 @@ const STORE = () => "sj_world_" + spec.id;
 function saveState() {
   try {
     localStorage.setItem(STORE(), JSON.stringify({
-      v: 1, day: world.day, provisions: world.provisions, party: world.party,
+      v: 2, day: world.day, provisions: world.provisions, party: world.party,
+      gold: world.gold, gear: world.gear, contract: world.contract,
       rngState, spotted: [...world.spotted], destroyed: [...world.destroyed],
       parties: world.parties.map((p) => ({ pid: p.pid, pos: p.pos, leg: p.leg, alive: p.alive })),
       pending: pendingBattle,
@@ -102,10 +146,13 @@ function saveState() {
 function restoreState() {
   let s = null;
   try { s = JSON.parse(localStorage.getItem(STORE()) || "null"); } catch (e) { s = null; }
-  if (!s || s.v !== 1) return false;
+  if (!s || s.v !== 2) return false;   // pre-economy saves are discarded
   world.day = s.day;
   world.provisions = s.provisions;
   world.party = s.party.slice();
+  world.gold = s.gold;
+  world.gear = s.gear || seedGear();
+  world.contract = s.contract || null;
   rngState = s.rngState >>> 0;
   world.spotted = new Set(s.spotted);
   world.destroyed = new Set(s.destroyed);
@@ -127,7 +174,7 @@ function retreatToFriendly() {
     const k = key(s.at[0], s.at[1]);
     if (costs.has(k) && costs.get(k) < bc) { bc = costs.get(k); best = s; }
   }
-  if (best) { world.party = best.at.slice(); resupply(); }
+  if (best) world.party = best.at.slice();   // no free grain at the gates anymore
   return best;
 }
 
@@ -150,6 +197,7 @@ function applyBattleResult(resOverride) {
     } else {
       const b = retreatToFriendly();
       log(`第${world.day}日 · 攻寨失利，残部退守${b ? b.name : "旷野"}`, "r");
+      failContract();   // a lost battle voids the bond (sim fail_contract)
     }
   } else {
     const p = world.parties.find((x) => x.pid === pend.target);
@@ -159,6 +207,7 @@ function applyBattleResult(resOverride) {
     } else {
       const b = retreatToFriendly();
       log(`第${world.day}日 · 战败溃走，退至${b ? b.name : "荒野"}`, "r");
+      failContract();   // a lost battle voids the bond (sim fail_contract)
     }
   }
 }
@@ -167,6 +216,89 @@ let placeLayer, partyLayer, fxLayer;
 let hoverPathEl = null;
 
 const tileCost = (k) => COST[tiles.get(k).terrain];
+
+/* ---------------- camera (BB/Bannerlord style: pan, edge-scroll, zoom) ----------------
+   The viewBox is a window over the full board; scale = css px per board unit. */
+let BOARD_W = 0, BOARD_H = 0;
+const ZOOM_MIN = 0.5, ZOOM_MAX = 2.2;        // × base scale (base: 1 unit = 1 px)
+const EDGE_PX = 28, EDGE_STEP = 12, EDGE_MS = 40;
+const cam = { x: 0, y: 0, scale: 1 };
+let wrapEl = null;
+let dragLast = null, dragMoved = 0;          // >5px of drag suppresses the click
+let edgeXY = null;                           // last cursor position over the pane
+
+function viewSize() {
+  const r = boardEl.getBoundingClientRect();
+  return { w: (r.width || 960) / cam.scale, h: (r.height || 640) / cam.scale };
+}
+function clampCam() {
+  const { w, h } = viewSize();
+  cam.x = w >= BOARD_W ? (BOARD_W - w) / 2 : Math.max(0, Math.min(BOARD_W - w, cam.x));
+  cam.y = h >= BOARD_H ? (BOARD_H - h) / 2 : Math.max(0, Math.min(BOARD_H - h, cam.y));
+}
+function applyCam() {
+  if (!BOARD_W) return;
+  clampCam();
+  const { w, h } = viewSize();
+  boardEl.setAttribute("viewBox",
+    `${cam.x.toFixed(1)} ${cam.y.toFixed(1)} ${w.toFixed(1)} ${h.toFixed(1)}`);
+}
+function centerOn(pos) {
+  const { x, y } = hexToPix(pos[0], pos[1]);
+  const { w, h } = viewSize();
+  cam.x = x - w / 2; cam.y = y - h / 2;
+  applyCam();
+}
+function initCamera() {
+  wrapEl = document.getElementById("boardwrap");
+  boardEl.addEventListener("mousedown", (e) => {
+    if (e.button !== 0) return;
+    dragLast = [e.clientX, e.clientY]; dragMoved = 0;
+    e.preventDefault();    // no text/image selection while panning
+  });
+  window.addEventListener("mousemove", (e) => {
+    if (!dragLast) return;
+    const dx = e.clientX - dragLast[0], dy = e.clientY - dragLast[1];
+    dragLast = [e.clientX, e.clientY];
+    dragMoved += Math.abs(dx) + Math.abs(dy);
+    if (dragMoved > 5) boardEl.style.cursor = "grabbing";
+    cam.x -= dx / cam.scale; cam.y -= dy / cam.scale;
+    applyCam();
+  });
+  window.addEventListener("mouseup", () => {
+    dragLast = null;
+    boardEl.style.cursor = "";
+  });
+  // edge-scrolling, BB style: the cursor resting near a pane edge pans the map
+  wrapEl.addEventListener("mousemove", (e) => { edgeXY = [e.clientX, e.clientY]; });
+  wrapEl.addEventListener("mouseleave", () => { edgeXY = null; });
+  setInterval(() => {
+    if (!edgeXY || dragLast || busy || !BOARD_W) return;
+    if (document.getElementById("battleframe")
+        || overlayEl.style.display === "flex") return;   // a modal owns the screen
+    const r = wrapEl.getBoundingClientRect();
+    const step = EDGE_STEP / cam.scale;
+    let dx = 0, dy = 0;
+    if (edgeXY[0] - r.left < EDGE_PX) dx = -step;
+    else if (r.right - edgeXY[0] < EDGE_PX) dx = step;
+    if (edgeXY[1] - r.top < EDGE_PX) dy = -step;
+    else if (r.bottom - edgeXY[1] < EDGE_PX) dy = step;
+    if (dx || dy) { cam.x += dx; cam.y += dy; applyCam(); }
+  }, EDGE_MS);
+  // wheel zoom, anchored at the cursor
+  wrapEl.addEventListener("wheel", (e) => {
+    e.preventDefault();
+    const r = boardEl.getBoundingClientRect();
+    const mx = e.clientX - r.left, my = e.clientY - r.top;
+    const bx = cam.x + mx / cam.scale, by = cam.y + my / cam.scale;
+    const z = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, cam.scale * Math.exp(-e.deltaY * 0.0012)));
+    if (z === cam.scale) return;
+    cam.scale = z;
+    cam.x = bx - mx / z; cam.y = by - my / z;
+    applyCam();
+  }, { passive: false });
+  window.addEventListener("resize", applyCam);
+}
 
 /* ---------------- world build (load_world) ---------------- */
 function buildWorld() {
@@ -197,6 +329,9 @@ function buildWorld() {
     settlements.set(s.id, s);
   }
   world.party = settlements.get(spec.start).at.slice();
+  world.gold = GOLD_START;
+  world.gear = seedGear();   // the heroes ride out with their template gear
+  world.contract = null;
   for (const p of spec.parties || []) {
     if (!(p.kind in PARTY_GLYPH)) throw new Error(`队伍 ${p.id}：未知类别 ${p.kind}`);
     for (const wp of p.route || []) if (!settlements.has(wp)) throw new Error(`队伍 ${p.id}：未知途经 ${wp}`);
@@ -362,12 +497,89 @@ function burnRation() {
   }
 }
 
-/* overnight restock — friendly gates only; ruins and 辽营 feed no one */
-function resupply() {
+/* ---------------- the silver economy (mirrors sim/overworld.py exactly) ---------------- */
+
+/* the friendly settlement underfoot, if any — where money talks */
+function tradePost() {
   const s = settlementAt(world.party);
-  if (s && FRIENDLY_KINDS.has(s.kind) && !world.destroyed.has(s.id))
-    world.provisions = PROVISIONS_MAX;
-  return s;
+  if (s && FRIENDLY_KINDS.has(s.kind) && !world.destroyed.has(s.id)) return s;
+  return null;
+}
+
+/* 市集: provisions for silver — fill up, limited by the purse (market_buy) */
+function marketBuy() {
+  const s = tradePost();
+  if (!s) return 0;
+  const price = PROVISION_PRICE[s.kind];
+  const need = PROVISIONS_MAX - world.provisions;
+  const n = Math.max(0, Math.min(need, Math.floor(world.gold / price)));
+  if (n) {
+    world.provisions += n;
+    world.gold -= n * price;
+    log(`第${world.day}日 · 市集买粮${n}日，费银${n * price}两`, "sys");
+  }
+  return n;
+}
+
+/* 镖单: escorts to the 3 nearest cities/towns + a bounty on every discovered,
+   standing lair. Deterministic: no dice, the map IS the job board (jobs) */
+function cityJobs() {
+  const s = tradePost();
+  if (!s) return [];
+  const { costs } = dijkstra(world.party);
+  const out = [];
+  const dests = [...settlements.values()]
+    .filter((x) => x.id !== s.id && (x.kind === "city" || x.kind === "town")
+      && !world.destroyed.has(x.id) && costs.has(key(x.at[0], x.at[1])))
+    .sort((a, b) => costs.get(key(a.at[0], a.at[1])) - costs.get(key(b.at[0], b.at[1])))
+    .slice(0, 3);
+  for (const d of dests) {
+    const days = Math.max(1, Math.ceil(costs.get(key(d.at[0], d.at[1])) / MOVE_PER_DAY));
+    out.push({ kind: "escort", to: d.id, name: `押镖至${d.name}`,
+               pay: days * ESCORT_RATE + 20, days });
+  }
+  for (const lair of settlements.values()) {
+    if (lair.kind === "stronghold" && world.spotted.has(lair.id)
+        && !world.destroyed.has(lair.id)) {
+      out.push({ kind: "bounty", target: lair.id, name: `剿灭${lair.name}`, pay: BOUNTY_PAY });
+    }
+  }
+  return out;
+}
+
+/* one active contract at a time — the BB rule (take_job) */
+function takeJob(job) {
+  if (world.contract) return false;
+  world.contract = Object.assign({}, job);
+  log(`第${world.day}日 · 接下镖单——${job.name}（酬${job.pay}两）`, "b");
+  return true;
+}
+
+/* a lost battle voids the bond — callers decide when (fail_contract) */
+function failContract() {
+  if (world.contract) {
+    log(`第${world.day}日 · 镖单失约——${world.contract.name}，酬银泡了汤`, "r");
+    world.contract = null;
+  }
+}
+
+/* 铁匠铺 (cities only): one hero's gear, one grade up the 品阶 ladder (smith_upgrade) */
+function smithUpgrade(uid, slot) {
+  const s = tradePost();
+  if (!s || s.kind !== "city" || !GEAR_SLOTS.includes(slot) || !(uid in world.gear))
+    return null;
+  const cur = world.gear[uid][slot] || "fan";
+  const i = QUALITY_LADDER.indexOf(cur) + 1;
+  if (i >= QUALITY_LADDER.length) return null;
+  const nxt = QUALITY_LADDER[i];
+  const price = SMITH_PRICE[nxt];
+  if (world.gold < price) return null;
+  world.gold -= price;
+  world.gear[uid][slot] = nxt;
+  const h = HEROES.find((t) => t.id === uid);
+  log(`第${world.day}日 · 铁匠铺升造：${h ? h.name : uid}之${SLOT_LABEL[slot]}升至` +
+      `${QUALITY_LABEL[nxt]}，费银${price}两`, "b");
+  return nxt;
 }
 
 /* the world hex seeds the battle; an anchored site or a lair's own scenario
@@ -399,23 +611,27 @@ function dusk() {
   return p;
 }
 
-/* hold position for a day (wait out a patrol, resupply in town) */
+/* hold position for a day (wait out a patrol; food still burns — buy at the 市集) */
 function doCamp() {
   if (busy) return;
-  const s0 = settlementAt(world.party);
-  const refill = s0 && FRIENDLY_KINDS.has(s0.kind) && !world.destroyed.has(s0.id);
-  log(`第${world.day}日 · 就地扎营一日${refill ? "，补足粮草" : ""}`, "sys");
+  log(`第${world.day}日 · 就地扎营一日`, "sys");
   dusk();
-  resupply();
   world.day += 1;
   refresh();
 }
 
-/* a fallen lair: mark the ruin, disband every band that called it home */
+/* a fallen lair: mark the ruin, disband every band that called it home;
+   a matching bounty pays out on the spot (sim raze()) */
 function applyRaze(lair) {
   world.destroyed.add(lair.id);
   for (const p of world.parties)
     if (p.home && samePos(p.home, lair.at)) p.alive = false;
+  if (world.contract && world.contract.kind === "bounty"
+      && world.contract.target === lair.id) {
+    world.gold += world.contract.pay;
+    log(`第${world.day}日 · 剿匪功成——${world.contract.name}，赏银${world.contract.pay}两入账`, "b");
+    world.contract = null;
+  }
 }
 
 function doAssault() {
@@ -439,11 +655,13 @@ function launchBattle(pend) {
     wrap.style.cssText = "position:fixed;inset:0;z-index:50;background:#1d1a15;";
     const f = document.createElement("iframe");
     f.style.cssText = "width:100%;height:100%;border:0;";
-    const inject = `<script>window.__SJ_SCEN=${JSON.stringify(pend.scenario)};window.__SJ_CAMPAIGN=1;<\/script>`;
+    const inject = `<script>window.__SJ_SCEN=${JSON.stringify(pend.scenario)};window.__SJ_CAMPAIGN=1;` +
+      `window.__SJ_GEAR=${JSON.stringify(world.gear)};<\/script>`;
     f.srcdoc = EMBEDDED_BATTLE.replace("<script>", inject + "<script>");
     wrap.appendChild(f);
     document.body.appendChild(wrap);
   } else {
+    try { localStorage.setItem("sj_gear", JSON.stringify(world.gear)); } catch (e) {}
     location.href = "index.html?scenario=" + pend.scenario + "&campaign=1";
   }
 }
@@ -482,12 +700,17 @@ async function travelTo(destK) {
     } else {
       interceptor = dusk();
     }
-    const s = resupply();
+    const s = settlementAt(world.party);
+    if (!interceptor && world.contract && world.contract.kind === "escort"
+        && s && s.id === world.contract.to) {
+      world.gold += world.contract.pay;          // 镖银两讫 (sim: travel arrival)
+      log(`第${world.day}日 · 镖银两讫——${world.contract.name}，得${world.contract.pay}两`, "b");
+      world.contract = null;
+    }
     renderPlaces(); renderParties(); updateBar();
     if (interceptor || i + 1 >= path.length) {
       if (!interceptor) {
-        log(`第${world.day}日 · 行至${s ? s.name : locName(world.party)}` +
-            (s && FRIENDLY_KINDS.has(s.kind) && !world.destroyed.has(s.id) ? "，补足粮草" : ""), "sys");
+        log(`第${world.day}日 · 行至${s ? s.name : locName(world.party)}`, "sys");
       }
       world.day += 1;
       break;
@@ -541,6 +764,16 @@ function buildBoard() {
     }
   }
   boardEl.appendChild(tileLayer);
+  // 藩镇 territory captions — big, faint, part of the land itself
+  const labelLayer = svgEl("g", { "pointer-events": "none" });
+  for (const lb of spec.labels || []) {
+    const { x, y } = hexToPix(lb.at[0], lb.at[1]);
+    const t = svgEl("text", { x, y, "text-anchor": "middle",
+      "font-size": 26, fill: "rgba(91,83,70,.35)", "font-weight": "bold" });
+    t.textContent = lb.text;
+    labelLayer.appendChild(t);
+  }
+  boardEl.appendChild(labelLayer);
   // anchored set-pieces: 关 / 陉 / 桥 / 渡 — fixed-map landmarks, always visible
   const siteLayer = svgEl("g", { "pointer-events": "none" });
   for (const s of sites.values()) {
@@ -626,12 +859,61 @@ const locName = (pos) => destName(key(pos[0], pos[1]));
 function updateBar() {
   document.getElementById("daylabel").textContent = `第 ${world.day} 日`;
   document.getElementById("provlabel").textContent = `粮草 ${world.provisions}/${PROVISIONS_MAX}`;
-  document.getElementById("loclabel").textContent = locName(world.party);
+  document.getElementById("goldlabel").textContent = `银两 ${world.gold}`;
+  document.getElementById("contractlabel").textContent =
+    world.contract ? `镖单·${world.contract.name}` : "";
+  const s0 = settlementAt(world.party);
+  document.getElementById("loclabel").textContent = locName(world.party) +
+    (s0 && s0.fanzhen && (!s0.hidden || world.spotted.has(s0.id)) ? `（${s0.fanzhen}）` : "");
+  renderCity();
   const s = settlementAt(world.party);
   const lair = s && s.kind === "stronghold" && !world.destroyed.has(s.id) && world.spotted.has(s.id);
   document.getElementById("assault").style.display = lair && !busy ? "" : "none";
   document.getElementById("campbtn").disabled = busy;
 }
+
+/* the city panel: where silver talks — 市集, 镖单, 铁匠铺 */
+function renderCity() {
+  const el = document.getElementById("citypanel");
+  const s = tradePost();
+  if (!s || busy) { el.style.display = "none"; el.innerHTML = ""; return; }
+  const price = PROVISION_PRICE[s.kind];
+  const need = PROVISIONS_MAX - world.provisions;
+  const canBuy = Math.max(0, Math.min(need, Math.floor(world.gold / price)));
+  let html = `<b>${s.name}</b>${s.fanzhen ? `（${s.fanzhen}）` : ""}`;
+  html += `<h4>市集</h4><button onclick="uiBuy()" ${canBuy ? "" : "disabled"}>` +
+          `买粮${canBuy || need}日 · ${(canBuy || need) * price}两</button>`;
+  html += `<h4>镖单</h4>`;
+  const board = cityJobs();
+  if (!board.length) html += `<div class="job"><span>暂无镖单</span></div>`;
+  board.forEach((jb, i) => {
+    html += `<div class="job"><span>${jb.name} · ${jb.pay}两</span>` +
+            `<button onclick="uiTake(${i})" ${world.contract ? "disabled" : ""}>接单</button></div>`;
+  });
+  if (s.kind === "city") {
+    html += `<h4>铁匠铺</h4>`;
+    for (const h of HEROES) {
+      const g = world.gear[h.id] || {};
+      let row = `<div class="job"><span>${h.name}</span>`;
+      for (const slot of GEAR_SLOTS) {
+        if (slot === "wpn2_q" && !h.wpn2) continue;
+        const cur = g[slot] || "fan";
+        const i = QUALITY_LADDER.indexOf(cur) + 1;
+        if (i >= QUALITY_LADDER.length) { row += `<button disabled>${SLOT_LABEL[slot]}·神</button>`; continue; }
+        const nxt = QUALITY_LADDER[i], cost = SMITH_PRICE[nxt];
+        row += `<button onclick="uiSmith('${h.id}','${slot}')" ` +
+               `${world.gold < cost ? "disabled" : ""} title="${cost}两">` +
+               `${SLOT_LABEL[slot]}→${QUALITY_LABEL[nxt][0]} ${cost}</button>`;
+      }
+      html += row + `</div>`;
+    }
+  }
+  el.innerHTML = html;
+  el.style.display = "block";
+}
+window.uiBuy = () => { marketBuy(); refresh(); };
+window.uiTake = (i) => { const jb = cityJobs()[i]; if (jb) takeJob(jb); refresh(); };
+window.uiSmith = (uid, slot) => { smithUpgrade(uid, slot); refresh(); };
 
 /* days a path takes at MOVE_PER_DAY budget per day (interception-free estimate) */
 function daysAlong(path) {

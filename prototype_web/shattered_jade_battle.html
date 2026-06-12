@@ -1493,6 +1493,11 @@ async function boot() {
   const params = new URLSearchParams(location.search);
   const scenId = params.get("scenario") || window.__SJ_SCEN || "jiebiao";
   CAMPAIGN = params.get("campaign") === "1" || window.__SJ_CAMPAIGN === 1;
+  let CGEAR = null;
+  if (CAMPAIGN) {
+    try { CGEAR = window.__SJ_GEAR || JSON.parse(localStorage.getItem("sj_gear") || "null"); }
+    catch (err) { CGEAR = null; }
+  }
   if (window.__SJ_CAMPAIGN) {
     const sp = document.getElementById("scenpick");
     if (sp) sp.disabled = true;   // in the battle frame, the map picks the fight
@@ -1523,6 +1528,9 @@ async function boot() {
     if (!tplById[su.id]) throw new Error(`战役 ${scenId}：未知单位 "${su.id}"`);
     if (seenIds.has(su.id)) throw new Error(`战役 ${scenId}：单位 "${su.id}" 重复上场（id 必须唯一）`);
     seenIds.add(su.id);
+    if (CGEAR && tplById[su.id].side === "player" && CGEAR[su.id]) {
+      su = Object.assign({}, su, CGEAR[su.id]);  // the smith's work rides to war
+    }
     const un = mkUnit(tplById[su.id], su.spawn[0], su.spawn[1], su); // su carries 品阶 overrides
     un.garrison = su.garrison ?? null; // AI holds within this radius of home
     un.home = { q: su.spawn[0], r: su.spawn[1] };
