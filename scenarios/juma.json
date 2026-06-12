@@ -1,0 +1,216 @@
+{
+  "id": "juma",
+  "name": "血战 · 拒马河",
+  "intro": [
+    "血战！契丹打草谷大队踏冰南下，拒马河防线告急——镖局举旗赴援，与皮室铁军隔河对峙。",
+    "皮室军铁甲怙恶，汉军枪弩压阵：两岸皆是百战之兵、精良之械。骨朵碎甲，渡口就是绞肉的磨盘。",
+    "河水不可涉，两处渡口是仅有的生路——长枪可隔河相刺，弓弩飞越无碍。顶住渡口，耗尽他们的气力。"
+  ],
+  "map": {
+    "cols": 17,
+    "rows": 11,
+    "road": [
+      [-1, 2],
+      [0, 2],
+      [1, 2],
+      [2, 2],
+      [3, 2],
+      [4, 2],
+      [5, 2],
+      [6, 2],
+      [7, 2],
+      [8, 2],
+      [9, 2],
+      [10, 2],
+      [11, 2],
+      [12, 2],
+      [13, 2],
+      [14, 2],
+      [15, 2]
+    ],
+    "cart": null,
+    "forest": [
+      [0, 8],
+      [1, 8],
+      [0, 9],
+      [1, 9]
+    ],
+    "elev1": [
+      [3, 0],
+      [4, 0],
+      [11, 0],
+      [12, 0],
+      [11, 1],
+      [12, 1]
+    ],
+    "elev2": [],
+    "elev3": [],
+    "wall": [],
+    "water": [
+      [8, 0],
+      [8, 1],
+      [6, 4],
+      [6, 5],
+      [5, 6],
+      [4, 9],
+      [3, 10]
+    ]
+  },
+  "units": [
+    {
+      "id": "chen",
+      "spawn": [3, 2],
+      "armor_q": "zhen",
+      "wpn_q": "jing",
+      "helmet_q": "jing"
+    },
+    {
+      "id": "wang",
+      "spawn": [3, 3],
+      "wpn_q": "zhen",
+      "armor_q": "zhen",
+      "helmet_q": "jing"
+    },
+    {
+      "id": "xya",
+      "spawn": [2, 3],
+      "armor_q": "zhen",
+      "wpn_q": "jing",
+      "helmet_q": "liang"
+    },
+    {
+      "id": "xyb",
+      "spawn": [1, 5],
+      "armor_q": "zhen",
+      "wpn_q": "jing",
+      "helmet_q": "liang"
+    },
+    {
+      "id": "xyd",
+      "spawn": [0, 4],
+      "armor_q": "zhen",
+      "wpn_q": "jing",
+      "helmet_q": "liang"
+    },
+    {
+      "id": "xyc",
+      "spawn": [0, 7],
+      "armor_q": "zhen",
+      "wpn_q": "jing",
+      "helmet_q": "liang"
+    },
+    {
+      "id": "shi",
+      "spawn": [1, 7],
+      "armor_q": "jing",
+      "helmet_q": "jing",
+      "wpn_q": "jing"
+    },
+    {
+      "id": "zhou",
+      "spawn": [1, 6],
+      "armor_q": "zhen",
+      "wpn_q": "jing",
+      "helmet_q": "jing"
+    },
+    {
+      "id": "liu",
+      "spawn": [2, 4],
+      "wpn_q": "zhen",
+      "armor_q": "zhen",
+      "helmet_q": "jing"
+    },
+    {
+      "id": "he",
+      "spawn": [0, 6],
+      "armor_q": "zhen",
+      "wpn_q": "jing",
+      "helmet_q": "jing"
+    },
+    {
+      "id": "yan",
+      "spawn": [3, 0],
+      "wpn_q": "jing",
+      "armor_q": "liang",
+      "helmet_q": "liang"
+    },
+    {
+      "id": "lu",
+      "spawn": [0, 5],
+      "armor_q": "jing",
+      "wpn_q": "jing",
+      "helmet_q": "liang"
+    },
+    {
+      "id": "psa",
+      "spawn": [10, 2],
+      "wpn_q": "liang",
+      "armor_q": "liang"
+    },
+    {
+      "id": "psb",
+      "spawn": [10, 3],
+      "wpn_q": "liang",
+      "armor_q": "liang"
+    },
+    {
+      "id": "hqa",
+      "spawn": [9, 4],
+      "wpn_q": "liang",
+      "armor_q": "liang"
+    },
+    {
+      "id": "hqb",
+      "spawn": [9, 5],
+      "wpn_q": "liang",
+      "armor_q": "liang"
+    },
+    {
+      "id": "hqc",
+      "spawn": [8, 6],
+      "wpn_q": "liang",
+      "armor_q": "liang"
+    },
+    {
+      "id": "psc",
+      "spawn": [8, 7],
+      "wpn_q": "liang",
+      "armor_q": "liang"
+    },
+    {
+      "id": "psd",
+      "spawn": [11, 3],
+      "wpn_q": "liang",
+      "armor_q": "liang"
+    },
+    {
+      "id": "xiangwen",
+      "spawn": [10, 5],
+      "wpn_q": "jing",
+      "armor_q": "liang",
+      "helmet_q": "liang"
+    },
+    {
+      "id": "sda",
+      "spawn": [12, 2],
+      "wpn_q": "liang"
+    },
+    {
+      "id": "sdb",
+      "spawn": [11, 4],
+      "wpn_q": "liang"
+    },
+    {
+      "id": "hna",
+      "spawn": [11, 5],
+      "wpn_q": "liang",
+      "armor_q": "liang"
+    },
+    {
+      "id": "hnb",
+      "spawn": [10, 7],
+      "wpn_q": "liang",
+      "armor_q": "liang"
+    }
+  ]
+}

@@ -1,4 +1,4 @@
-# Shattered Jade (碎玉) — Design Document v0.25
+# Shattered Jade (碎玉) — Design Document v0.26
 
 > **Title: Shattered Jade (碎玉)** — final, 2026-06-11. 宁为玉碎，不为瓦全 ("better
 > shattered jade than intact tile"): the permadeath creed in two characters — your
@@ -947,6 +947,29 @@ timelines are how side projects die — hitting month 6 still in M1 is *on pace*
 ---
 
 ## 10. Changelog
+
+**v0.26 (2026-06-12)** — **血战 · 拒马河: the Khitan meat grinder** (endgame scenario
+six, ★★★★★★ — the invasion-climax battle, fought at the historical anti-Khitan
+river line). (1) **The Khitan column, within M0 mechanics**: cavalry stays M4; this
+is the dismounted 打草谷 column — 12 new templates: 耶律详稳 (leader, iron, 精品
+saber) · 皮室 iron guard ×4 (铁甲+铁盔 in 良品, two 长枪, one 大斧, one **骨朵 ≈
+大锤** — the Khitan signature mace brings 碎甲 to BOTH sides) · 射雕手 ×2 · Han
+auxiliary spear-and-crossbow infantry ×5 (the §1.x composition, reusing human AI).
+(2) **Both sides graded to the teeth**: first fielding of **珍品 (zhen)** — 王铁枪's
+famous 珍品·长枪, 刘三刀's 珍品·腰刀 (scenario override finally beating a template
+quality), zhen mail on the front rank and the levies; the column in raw-to-良品
+iron. (3) **Terrain: a 1-hex river** — impassable but reach-2 spears fight ACROSS
+it and arrows fly over; two fords (the road ford north, mud ford south) are the
+grinder lanes. (4) **Tuning lessons again formation-first**: levies in the front
+rank → 0-2% player; 何九鞭 anchoring the south ford alone → he dies first in
+79/100 seeds to 耶律详稳 personally (probe), igniting the cascade. Iron anchors
+(石敢当/周大刀) at the fords + the whip as a second-rank counter-puncher + 燕小乙
+on the north rise swung 2% → 58%; restoring the 皮室's 良品 lamellar landed it at
+**50.8% player over 500 seeds** — dead even, mean 12.9 rounds, max 40, zero draws.
+(5) **It IS a grinder, measured**: armor damage outpaces HP damage **1.72 : 1**
+(field battles run well below 1); 碎甲 460 / 瞄准 3280 / 兜头 111 / 横扫 20 /
+spearwall thrusts 202 per 200 battles. Ladder: 劫镖 60 · 守桥 56 · 对决 47 ·
+攻寨 51 · 会战 56 · 血战 51. 94 tests green.
 
 **v0.25 (2026-06-12)** — **会战 · 黑风岭下: the pitched battle** (the BB line-battle
 fantasy, scenario five, ★★★★★). (1) First non-13×9 map — **17×11 open field**: an

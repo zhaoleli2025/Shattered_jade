@@ -132,3 +132,19 @@ def test_huizhan_pitched_battle_runs_clean():
         assert r["winner"] in ("player", "enemy", "draw")
         for u in s.alive_units():
             assert not s.tiles[u.pos()].impassable
+
+
+def test_juma_khitan_grinder_runs_clean():
+    """血战: both sides graded to the teeth — the armor-economy stress test."""
+    from sim.state import load_scenario
+    for seed in range(3):
+        s = load_scenario("juma", seed)
+        assert len(s.units) == 24 and (s.cols, s.rows) == (17, 11)
+        zhen = [u for u in s.units if u.armor_name.startswith("珍品")]
+        assert len(zhen) >= 9          # the quality ladder's top tier, finally fielded
+        wang = s.by_id("wang")
+        assert wang.wpn["label"] == "珍品·长枪"   # scenario override beats template
+        r = run_battle(s, {"player": ai_turn, "enemy": ai_turn})
+        assert r["winner"] in ("player", "enemy", "draw")
+        for u in s.alive_units():
+            assert not s.tiles[u.pos()].impassable

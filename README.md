@@ -47,6 +47,7 @@ Five battles, a difficulty ladder (AI-vs-AI player win rate, 300 seeds, v0.25):
 | ★★★ | 对决 · 黑风三煞 | elite duel around the mound, 3 vs 5 | 47% |
 | ★★★★ | 攻寨 · 强袭山寨 | storm the walled mountain village, 6 vs 8 | 51% |
 | ★★★★★ | 会战 · 黑风岭下 | pitched battle, two armies, 12 vs 17 on a 17×11 field | 56% |
+| ★★★★★★ | 血战 · 拒马河 | endgame: the Khitan column at the river line, iron vs iron, 12 vs 12 | 51% |
 
 Left click moves/strikes via the skill bar; right click inspects anyone; every
 die roll is public in the combat log.
