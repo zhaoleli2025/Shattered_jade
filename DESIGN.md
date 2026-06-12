@@ -1,4 +1,4 @@
-# Shattered Jade (碎玉) — Design Document v0.30
+# Shattered Jade (碎玉) — Design Document v0.31
 
 > **Title: Shattered Jade (碎玉)** — final, 2026-06-11. 宁为玉碎，不为瓦全 ("better
 > shattered jade than intact tile"): the permadeath creed in two characters — your
@@ -952,6 +952,25 @@ timelines are how side projects die — hitting month 6 still in M1 is *on pace*
 ---
 
 ## 10. Changelog
+
+**v0.31 (2026-06-12)** — **the campaign loop closes + a deterministic web world**
+(fixing v0.30's two named gaps). (1) **Battle results flow back into the map**:
+开战/攻寨 stores the pending context and launches the battle page with
+`&campaign=1`; the battle page writes its verdict and grows a 「回到舆图」
+button; back on the map, an assault victory **razes the lair automatically**
+(the honor-system 已荡平 button is gone), an interception victory **disbands
+the beaten band**, and a defeat **retreats the column to the nearest friendly
+gates** with the log narrating each outcome. (2) **The world survives the page
+hop**: full state (day, provisions, positions, spotted/destroyed, party
+states, RNG state, pending battle) persists per-world in localStorage; 「重开」
+resets. Caveat: over file:// some browsers isolate or block localStorage — the
+campaign loop is guaranteed under tools/serve.py (http), best-effort in the
+offline two-file edition. (3) **Seeded, serializable PRNG** (mulberry32,
+`?seed=N`) replaces `Math.random` for the bandit prowl — the web world is now
+deterministic and its RNG state save/restores; bit-parity with the Python
+sim's Mersenne streams remains a non-goal until the portable-PRNG decision
+(M1 Godot port shares the same need). (4) Release link rewiring: the battle
+edition's 回到舆图 points at its sibling world file. 116 tests green.
 
 **v0.30 (2026-06-12)** — **the realm goes M&B: grand geography, modular areas,
 and the playable web 舆图**. (1) **中原 grand map** (`world/zhongyuan.json`,

@@ -235,6 +235,7 @@ function rosterTemplates() {
 /* ---------------- state ---------------- */
 let units = [], round = 0, queue = [], qIdx = -1;
 let busy = false, gameOver = false;
+let CAMPAIGN = false; // launched from the 舆图 — report the verdict back
 let moveInfo = null; // {costs:Map, prev:Map}
 let battleStats = {}; // per-unit damage/kills for the end-of-battle summary
 let selectedSkill = "attack"; // BB-style skill bar: "attack" | "special"; ground click always moves
@@ -837,6 +838,20 @@ function checkEnd() {
   if (e === 0 || p === 0) {
     gameOver = true;
     const ov = document.getElementById("overlay");
+    if (CAMPAIGN) {
+      // the verdict flows back to the map: razed lairs, broken bands, retreats
+      try {
+        localStorage.setItem("sj_battle_result", JSON.stringify(
+          { scenario: scenario.id, winner: e === 0 ? "player" : "enemy" }));
+      } catch (err) { /* file:// storage may be unavailable */ }
+      if (!document.getElementById("backworld")) {
+        const back = document.createElement("button");
+        back.id = "backworld";
+        back.textContent = "回到舆图";
+        back.addEventListener("click", () => { location.href = "world.html"; });
+        ov.appendChild(back);
+      }
+    }
     document.getElementById("ovtitle").textContent = e === 0 ? "胜" : "败";
     const dead = units.filter(x => x.side === "player" && !x.alive && !x.escaped).length;
     const fled = units.filter(x => x.side === "player" && x.escaped).length;
@@ -1300,7 +1315,9 @@ function log(html, cls) {
 async function boot() {
   logEl = document.getElementById("log");
   boardEl = document.getElementById("board");
-  const scenId = new URLSearchParams(location.search).get("scenario") || "jiebiao";
+  const params = new URLSearchParams(location.search);
+  const scenId = params.get("scenario") || "jiebiao";
+  CAMPAIGN = params.get("campaign") === "1";
   try {
     const res = await fetch(`scenarios/${scenId}.json`, { cache: "no-store" });
     if (!res.ok) throw new Error("HTTP " + res.status);

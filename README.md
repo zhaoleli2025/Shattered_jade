@@ -77,7 +77,13 @@ lairs are found by proximity, provisions burn daily.
 
 **Play it in the browser** — `python3 tools/serve.py`, open `/world.html`:
 click-to-travel with day estimates, camp, encounters whose 「开战」 button
-drops you into the battle page with the right scenario.
+drops you into the battle page with the right scenario — and the verdict
+flows back: win an assault and the lair is razed, win an interception and
+the band disbands, lose and the column retreats to the nearest friendly
+gates. The world persists across the page hop (per-world localStorage;
+「重开」 resets; `?seed=N` picks the deterministic world seed). Note: some
+browsers restrict localStorage over `file://`, so the campaign loop is
+guaranteed under the dev server and best-effort in the offline edition.
 
 The realm is **modular** (`world/realm.json`): 河北南部 (`hebei.json`) is the
 pilot area; 河南·京畿 is built; 河东·关中·西北·山东·淮南·荆楚·剑南·幽云 are

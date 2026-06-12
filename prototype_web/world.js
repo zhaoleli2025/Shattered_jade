@@ -2,7 +2,8 @@
    fixed campaign hexes (pointy-top, same (col,row)→q convention as game.js), terrain
    move costs (官道/桥/聚落 1, 旷野/渡 2, 丘林 3, 大河层峦不可逾), MOVE_PER_DAY=8,
    视野 3（+1 于丘陵）, 粮草 12 日且仅友镇可补。Bandits prowl their leash with roads
-   weighted 3×（the ONE Math.random draw — gameplay parity, RNG parity not required）;
+   weighted 3×, drawn from a seeded serializable PRNG (mulberry32, ?seed=N) so the
+   web world is deterministic and survives page navigation;
    routed parties walk settlement routes by Dijkstra; hidden lairs render as natural
    ground until spotted; encounter scenario = anchored site → lair's own → terrain table. */
 
@@ -71,6 +72,95 @@ const world = { day: 1, provisions: PROVISIONS_MAX, party: null,
 let dij = null;                 // { costs, prev } from the column's hex
 let busy = false;               // a journey is animating
 let pendingScen = null;         // scenario behind the 开战 button
+let pendingParty = null;        // the hostile behind it
+let pendingBattle = null;       // {kind, target, scenario} — survives the page hop
+
+/* seeded, serializable PRNG (mulberry32) — the worldgen stream's stand-in */
+let rngState = 1;
+function rnd() {
+  rngState = (rngState + 0x6D2B79F5) >>> 0;
+  let t = rngState;
+  t = Math.imul(t ^ (t >>> 15), t | 1);
+  t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+  return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+}
+
+/* ---------------- persistence: the world survives the battle page ---------------- */
+const STORE = () => "sj_world_" + spec.id;
+
+function saveState() {
+  try {
+    localStorage.setItem(STORE(), JSON.stringify({
+      v: 1, day: world.day, provisions: world.provisions, party: world.party,
+      rngState, spotted: [...world.spotted], destroyed: [...world.destroyed],
+      parties: world.parties.map((p) => ({ pid: p.pid, pos: p.pos, leg: p.leg, alive: p.alive })),
+      pending: pendingBattle,
+    }));
+  } catch (e) { /* file:// storage may be unavailable — play on, unsaved */ }
+}
+
+function restoreState() {
+  let s = null;
+  try { s = JSON.parse(localStorage.getItem(STORE()) || "null"); } catch (e) { s = null; }
+  if (!s || s.v !== 1) return false;
+  world.day = s.day;
+  world.provisions = s.provisions;
+  world.party = s.party.slice();
+  rngState = s.rngState >>> 0;
+  world.spotted = new Set(s.spotted);
+  world.destroyed = new Set(s.destroyed);
+  const byId = new Map(world.parties.map((p) => [p.pid, p]));
+  for (const sp of s.parties) {
+    const p = byId.get(sp.pid);
+    if (p) { p.pos = sp.pos.slice(); p.leg = sp.leg; p.alive = sp.alive; }
+  }
+  pendingBattle = s.pending || null;
+  return true;
+}
+
+/* retreat: a beaten column falls back on the nearest friendly gates */
+function retreatToFriendly() {
+  const { costs } = dijkstra(world.party);
+  let best = null, bc = 1 << 30;
+  for (const s of settlements.values()) {
+    if (!FRIENDLY_KINDS.has(s.kind) || world.destroyed.has(s.id)) continue;
+    const k = key(s.at[0], s.at[1]);
+    if (costs.has(k) && costs.get(k) < bc) { bc = costs.get(k); best = s; }
+  }
+  if (best) { world.party = best.at.slice(); resupply(); }
+  return best;
+}
+
+/* the loop closes: what happened on the battle page lands on the map */
+function applyBattleResult() {
+  const pend = pendingBattle;
+  if (!pend) return;
+  pendingBattle = null;
+  let res = null;
+  try { res = JSON.parse(localStorage.getItem("sj_battle_result") || "null"); } catch (e) {}
+  if (!res || res.scenario !== pend.scenario) return;   // battle never fought
+  try { localStorage.removeItem("sj_battle_result"); } catch (e) {}
+  const win = res.winner === "player";
+  if (pend.kind === "assault") {
+    const lair = settlements.get(pend.target);
+    if (win && lair) {
+      applyRaze(lair);
+      log(`第${world.day}日 · 血战破寨——${lair.name}已荡平，余匪作鸟兽散！`, "b");
+    } else {
+      const b = retreatToFriendly();
+      log(`第${world.day}日 · 攻寨失利，残部退守${b ? b.name : "旷野"}`, "r");
+    }
+  } else {
+    const p = world.parties.find((x) => x.pid === pend.target);
+    if (win) {
+      if (p) p.alive = false;
+      log(`第${world.day}日 · 镖队击溃${p ? p.name : "贼人"}，道路为之一清`, "b");
+    } else {
+      const b = retreatToFriendly();
+      log(`第${world.day}日 · 战败溃走，退至${b ? b.name : "荒野"}`, "r");
+    }
+  }
+}
 let boardEl, logEl, overlayEl, hoverEl;
 let placeLayer, partyLayer, fxLayer;
 let hoverPathEl = null;
@@ -239,7 +329,7 @@ function tickParties() {
         }
       }
       const pool = roads.concat(roads, cands);   // roads weighted 3× in total
-      p.pos = pOf(pool[Math.floor(Math.random() * pool.length)]);
+      p.pos = pOf(pool[Math.floor(rnd() * pool.length)]);
     } else if (p.route.length) {
       const dest = settlements.get(p.route[p.leg]).at;
       stepToward(p, dest);
@@ -291,6 +381,7 @@ function emitEncounter(p) {
   const full = SCEN_NAME[scen] || scen;
   log(`第${world.day}日 · ${p.name}截住了镖队——${full.split(" · ")[0]}！`, "r");
   pendingScen = scen;
+  pendingParty = p;
   document.getElementById("ovtitle").textContent = "截击";
   document.getElementById("ovtext").textContent =
     `${p.name}截住了镖队！【${full}】` + (site ? `（${site.name}）` : "");
@@ -319,21 +410,20 @@ function doCamp() {
   refresh();
 }
 
-/* destroy the lair the bureau stands on — disbands every band that called it home */
-function doRaze() {
-  const lair = settlementAt(world.party);
-  if (busy || !lair || lair.kind !== "stronghold" || world.destroyed.has(lair.id)) return;
+/* a fallen lair: mark the ruin, disband every band that called it home */
+function applyRaze(lair) {
   world.destroyed.add(lair.id);
   for (const p of world.parties)
     if (p.home && samePos(p.home, lair.at)) p.alive = false;
-  log(`第${world.day}日 · ${lair.name}已荡平，余匪作鸟兽散`, "sys");
-  refresh();
 }
 
 function doAssault() {
   const lair = settlementAt(world.party);
   if (busy || !lair || lair.kind !== "stronghold" || world.destroyed.has(lair.id)) return;
-  location.href = "index.html?scenario=" + (lair.scenario || "gongzhai");
+  const scen = lair.scenario || "gongzhai";
+  pendingBattle = { kind: "assault", target: lair.id, scenario: scen };
+  saveState();
+  location.href = "index.html?scenario=" + scen + "&campaign=1";
 }
 
 /* march day by day toward a hex; a hostile within reach — at departure or on
@@ -483,6 +573,7 @@ function renderParties() {
 }
 
 function refresh() {
+  saveState();
   dij = dijkstra(world.party);
   const curK = key(world.party[0], world.party[1]);
   for (const el of boardEl.querySelectorAll(".hex"))
@@ -509,7 +600,6 @@ function updateBar() {
   const s = settlementAt(world.party);
   const lair = s && s.kind === "stronghold" && !world.destroyed.has(s.id) && world.spotted.has(s.id);
   document.getElementById("assault").style.display = lair && !busy ? "" : "none";
-  document.getElementById("razebtn").style.display = lair && !busy ? "" : "none";
   document.getElementById("campbtn").disabled = busy;
 }
 
@@ -598,20 +688,36 @@ async function boot() {
   }
   document.getElementById("subtitle").textContent = `${spec.name} — ${spec.era}`;
   buildWorld();
+  rngState = ((parseInt(new URLSearchParams(location.search).get("seed"), 10) || 1) >>> 0);
+  const resumed = restoreState();   // the world survives the battle page
   buildBoard();
-  log(`镖局总号驻${settlements.get(spec.start).name}。点击舆图任意可达之处即出发；遇匪遇骑，开战或脱离悉听尊便。`, "sys");
+  if (resumed) {
+    applyBattleResult();
+    log(`第${world.day}日 · 行程继续（重开请按「重开」）`, "sys");
+  } else {
+    log(`镖局总号驻${settlements.get(spec.start).name}。点击舆图任意可达之处即出发；遇匪遇骑，开战或脱离悉听尊便。`, "sys");
+  }
   spot();   // what the bureau can see from the gate on day one
   refresh();
 }
 
 document.getElementById("campbtn").addEventListener("click", doCamp);
 document.getElementById("assault").addEventListener("click", doAssault);
-document.getElementById("razebtn").addEventListener("click", doRaze);
+document.getElementById("restartw").addEventListener("click", () => {
+  try { localStorage.removeItem(STORE()); } catch (e) {}
+  location.reload();
+});
 document.getElementById("ovfight").addEventListener("click", () => {
-  if (pendingScen) location.href = "index.html?scenario=" + pendingScen;
+  if (!pendingScen) return;
+  pendingBattle = { kind: "encounter",
+                    target: pendingParty ? pendingParty.pid : null,
+                    scenario: pendingScen };
+  saveState();
+  location.href = "index.html?scenario=" + pendingScen + "&campaign=1";
 });
 document.getElementById("ovflee").addEventListener("click", () => {
   overlayEl.style.display = "none";
+  refresh();
 });
 
 boot();
