@@ -4,7 +4,7 @@ Serves prototype_web/ (the scenarios/world symlinks resolve ../) with
 Cache-Control: no-store on every response, so every browser refresh re-fetches
 everything: what you just saved is what you see.
 
-    python3 tools/serve.py [port]        (default 8765; from game01_demo/)
+    python3 tools/serve.py [port]        (default 7788; from game01_demo/)
 
 If the port is busy (a zombie server), the next free one is taken and printed —
 ALWAYS read the printed port. Remote use: VS Code → 端口/Ports → Forward a Port
@@ -26,6 +26,14 @@ class NoCacheHandler(http.server.SimpleHTTPRequestHandler):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, directory=DOCROOT, **kwargs)
 
+    def do_GET(self):
+        if self.path == "/":              # the game IS the map — land on it
+            self.send_response(302)
+            self.send_header("Location", "/world.html")
+            self.end_headers()
+            return
+        super().do_GET()
+
     def end_headers(self):
         self.send_header("Cache-Control", "no-store, must-revalidate")
         self.send_header("Expires", "0")
@@ -37,7 +45,7 @@ class Server(http.server.ThreadingHTTPServer):
 
 
 if __name__ == "__main__":
-    want = int(sys.argv[1]) if len(sys.argv) > 1 else 8765
+    want = int(sys.argv[1]) if len(sys.argv) > 1 else 7788
     srv = None
     for port in range(want, want + 10):
         try:
@@ -48,8 +56,8 @@ if __name__ == "__main__":
     if srv is None:
         sys.exit(f"no free port in {want}-{want + 9}")
     print(f"""serving {DOCROOT}
-  battles:  http://localhost:{port}/
-  the map:  http://localhost:{port}/world.html
+  the game: http://localhost:{port}/            (lands on the campaign map)
+  battles:  http://localhost:{port}/index.html  (single battles directly)
 remote? VS Code → Ports → Forward → type EXACTLY {port} (a wrong typed port hangs forever)
 no-store caching: every refresh is fresh. Ctrl-C to stop.""")
     srv.serve_forever()

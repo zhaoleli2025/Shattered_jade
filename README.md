@@ -26,12 +26,12 @@ Khitan invasion. Every blade has a name; permadeath is permanent: 宁为玉碎�
 battles open in-page and their outcome lands back on the map. This is the
 stable edition; nothing to forward, nothing to refresh.
 
-For development, the no-cache server (default port **8765** — if busy it takes
+For development, the no-cache server (default port **7788** — if busy it takes
 the next free port and prints it; forward EXACTLY the printed port in VS Code):
 
 ```bash
-python3 tools/serve.py            # → http://localhost:8765/  (battles)
-                                  # → http://localhost:8765/world.html  (the map)
+python3 tools/serve.py            # → http://localhost:7788/   lands on the game
+                                  #   /index.html = single battles directly
 ```
 
 
