@@ -14,8 +14,10 @@ def W():
 
 def test_region_loads_with_history_intact():
     w = W()
-    assert (w.spec["cols"], w.spec["rows"]) == (24, 16)
-    assert len(w.tiles) == 24 * 16
+    assert (w.spec["cols"], w.spec["rows"]) == (34, 28)   # v0.34: the full 河北
+    assert len(w.tiles) == 34 * 28
+    assert w.settlements["weizhou"]["fanzhen"] == "天雄军"
+    assert w.settlements["zhenzhou"]["fanzhen"] == "成德军"
     # the ceded prefectures sit beyond the 拒马河 as occupied towns
     assert w.settlements["yingzhou"]["kind"] == "occupied"
     assert w.settlements["mozhou"]["kind"] == "occupied"
@@ -111,8 +113,8 @@ def test_hidden_lair_revealed_by_proximity():
     assert "寨" in render(w)
 
 
-def test_provisions_burn_and_refill():
-    from sim.overworld import PROVISIONS_MAX, camp
+def test_provisions_burn_and_the_market_feeds():
+    from sim.overworld import PROVISIONS_MAX, camp, market_buy
     w = W()
     w.party = (3, 10)                                   # open country, no gates
     assert w.tiles[w.party].terrain == "plain"
@@ -120,10 +122,13 @@ def test_provisions_burn_and_refill():
         camp(w)
     assert w.provisions == 0
     assert any(e["type"] == "starving" for e in w.events)
-    travel(w, "zhaozhou")                               # nearest gates: resupply
-    assert w.provisions == PROVISIONS_MAX
-    camp(w)                                             # camping IN town restocks too
-    assert w.provisions == PROVISIONS_MAX
+    assert market_buy(w) == 0                           # no gates, no grain
+    travel(w, "zhaozhou")
+    assert w.provisions == 0                            # arrival alone feeds no one
+    gold0 = w.gold
+    n = market_buy(w)                                   # 市集: silver for grain
+    assert n == PROVISIONS_MAX and w.provisions == PROVISIONS_MAX
+    assert w.gold == gold0 - n * 2
 
 
 def test_hostile_adjacency_forces_an_encounter():
@@ -237,11 +242,12 @@ def test_world_rejects_unknown_scenario_refs(tmp_path, monkeypatch):
         load_world("henan")
 
 
-def test_no_resupply_in_occupied_towns():
-    from sim.overworld import camp
+def test_no_market_in_occupied_towns():
+    from sim.overworld import camp, market_buy
     w = W()
     w.party = w.settlements["mozhou"]["at"]             # 辽营 feeds no one
     w.provisions = 5
+    assert market_buy(w) == 0
     camp(w)
     assert w.provisions == 4
 
@@ -290,3 +296,58 @@ def test_realm_registry_is_consistent():
         if r["status"] == "built":
             load_world(r["id"])                 # plugged in and loadable
     load_world(realm["preview"])                # the composed grand map
+
+
+# ---- the silver economy (v0.34): 镖单, 铁匠铺, gear riding to war ----
+
+def test_escort_contract_pays_on_arrival():
+    from sim.overworld import jobs, take_job
+    w = W()
+    board = jobs(w)
+    escort = next(j for j in board if j["kind"] == "escort")
+    assert take_job(w, escort) is True
+    assert take_job(w, escort) is False                 # one bond at a time
+    gold0 = w.gold
+    travel(w, escort["to"])
+    if w.at_settlement() and w.at_settlement()["id"] == escort["to"]:
+        assert w.gold == gold0 + escort["pay"]
+        assert w.contract is None
+        assert any(e["type"] == "contract_done" for e in w.events)
+
+
+def test_bounty_pays_on_razing():
+    from sim.overworld import jobs, raze, take_job
+    w = W()
+    w.spotted.add("heifengzhai")                        # the lair is known
+    bounty = next(j for j in jobs(w) if j["kind"] == "bounty")
+    take_job(w, bounty)
+    w.party = w.settlements["heifengzhai"]["at"]        # stormed it
+    gold0 = w.gold
+    assert raze(w, "heifengzhai")
+    assert w.gold == gold0 + bounty["pay"] and w.contract is None
+
+
+def test_smith_upgrades_ride_to_war():
+    from sim.overworld import smith_upgrade
+    from sim.state import load_scenario
+    w = W()                                             # at 镇州, a city
+    w.gold = 1000
+    assert w.gear["wang"] == {}                         # 王铁枪 starts 凡品
+    assert w.gear["liu"]["wpn_q"] == "jing"             # template gear seeds in
+    assert smith_upgrade(w, "wang", "wpn_q") == "liang"
+    assert smith_upgrade(w, "wang", "wpn_q") == "jing"
+    assert w.gold == 1000 - 100 - 250
+    w.gold = 0
+    assert smith_upgrade(w, "wang", "wpn_q") is None    # no silver, no steel
+    s = load_scenario("jiebiao", 0, gear=w.gear)
+    assert s.by_id("wang").wpn["label"] == "精品·长枪"   # the work rides to war
+    plain = load_scenario("jiebiao", 0)
+    assert plain.by_id("wang").wpn["label"] == "长枪"
+
+
+def test_smith_only_in_cities():
+    from sim.overworld import smith_upgrade
+    w = W()
+    w.gold = 1000
+    w.party = w.settlements["wangdu"]["at"]             # a village has no forge
+    assert smith_upgrade(w, "wang", "wpn_q") is None

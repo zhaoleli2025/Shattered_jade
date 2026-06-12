@@ -17,8 +17,9 @@ from .ai import ai_turn
 from .commands import Stance, Strike, Swap, resolve, targets_of
 from .engine import run_battle
 from .hexmath import hex_dist
-from .overworld import (camp, load_world, raze, travel, dijkstra as wdijkstra,
-                        render as wrender)
+from .overworld import (camp, fail_contract, jobs, load_world, market_buy,
+                        raze, smith_upgrade, take_job, travel,
+                        dijkstra as wdijkstra, render as wrender)
 from .pathfind import dijkstra
 from .rules import hit_breakdown
 from .state import load_scenario
@@ -146,8 +147,8 @@ def human_turn(state, u):
             say("  ? 输入 ? 看指令")
 
 
-def play_battle(scen_id, seed=0):
-    s = load_scenario(scen_id, seed)
+def play_battle(scen_id, seed=0, gear=None):
+    s = load_scenario(scen_id, seed, gear=gear)
     say(f"\n════ {scen_id} · seed {seed} ════")
     r = run_battle(s, {"player": human_turn, "enemy": ai_turn})
     say("\n" + render(s))
@@ -159,17 +160,21 @@ def play_battle(scen_id, seed=0):
 # ---------------- campaign: the realm in the terminal ----------------
 WORLD_HELP = """\
   go 地名/id   前往（如: go 定州 / go dingzhou）   go C R  前往 列C 行R
-  camp         扎营一日          assault  攻打脚下贼寨
-  map          重看舆图          who      已发现的队伍
-  q            收兵退出          ?        帮助"""
+  camp     扎营一日       assault   攻打脚下贼寨
+  buy      市集买粮(补满)  jobs      看镖单
+  take N   接第 N 单      smith 人 部位   铁匠铺升品 (如: smith wang wpn_q)
+  map      重看舆图       who       已发现的队伍
+  q        收兵退出       ?         帮助"""
 
 
 def world_status(w):
     say("")
     say(wrender(w))
     s = w.at_settlement()
-    say(f"\n—— 第{w.day}日 · 粮草{w.provisions} · "
-        f"{(s['name'] if s else '野外')} ——")
+    fan = f"（{s['fanzhen']}）" if s and s.get("fanzhen") else ""
+    job = f" · 镖单:{w.contract['name']}" if w.contract else ""
+    say(f"\n—— 第{w.day}日 · 银{w.gold}两 · 粮草{w.provisions} · "
+        f"{(s['name'] + fan if s else '野外')}{job} ——")
 
 
 def find_settlement(w, tok):
@@ -205,7 +210,7 @@ def fight_encounter(w, pend_kind, target_id):
     if ask("开战 (y) / 脱离 (n) > ").lower() not in ("y", "yes", "战", ""):
         say("  且退一射之地。")
         return
-    winner = play_battle(scen, seed=w.day)
+    winner = play_battle(scen, seed=w.day, gear=w.gear)
     if winner == "player":
         if pend_kind == "assault":
             raze(w, target_id)
@@ -217,6 +222,7 @@ def fight_encounter(w, pend_kind, target_id):
                 say(f"  {p.name}就此覆灭，道路为之一清。")
     else:
         say("  败了。")
+        fail_contract(w)
         retreat(w)
 
 
@@ -245,10 +251,34 @@ def play_campaign(world_id="hebei", seed=0):
             enc = camp(w)
             if enc:
                 fight_encounter(w, "encounter", enc.pid)
+        elif op == "buy":
+            n = market_buy(w)
+            say(f"  市集购粮{n}日。" if n else "  此地无市，或银两不济。")
+        elif op == "jobs":
+            board = jobs(w)
+            for i, j in enumerate(board, 1):
+                say(f"  [{i}] {j['name']}  {j['pay']}两")
+            if not board:
+                say("  此地无镖单。")
+        elif op == "take" and len(toks) > 1:
+            board = jobs(w)
+            try:
+                job = board[int(toks[1]) - 1]
+            except (ValueError, IndexError):
+                job = None
+            if job and take_job(w, job):
+                say(f"  接下镖单：{job['name']}（{job['pay']}两）")
+            else:
+                say("  接不了（已有在身镖单？）")
+        elif op == "smith" and len(toks) == 3:
+            g = smith_upgrade(w, toks[1], toks[2])
+            say(f"  打造完成：{toks[1]} {toks[2]} → {g}" if g
+                else "  铁匠铺只在大城，或银两/品阶不济。")
         elif op == "assault":
             s = w.at_settlement()
             if s and s["kind"] == "stronghold" and s["id"] not in w.destroyed:
-                winner = play_battle(s.get("scenario", "gongzhai"), seed=w.day)
+                winner = play_battle(s.get("scenario", "gongzhai"), seed=w.day,
+                                     gear=w.gear)
                 if winner == "player":
                     raze(w, s["id"])
                     say(f"  {s['name']}已荡平！")

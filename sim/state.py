@@ -139,8 +139,9 @@ def tiles_from_spec(m):
     return tiles
 
 
-def load_scenario(scen_id, seed=0):
-    """Build a battle from scenarios/<id>.json — same file the browser fetches."""
+def load_scenario(scen_id, seed=0, gear=None):
+    """Build a battle from scenarios/<id>.json — same file the browser fetches.
+    gear: campaign quality slots per player hero (overrides the scenario's)."""
     path = os.path.join(SCENARIO_DIR, scen_id + ".json")
     with open(path, encoding="utf-8") as f:
         spec = json.load(f)
@@ -155,6 +156,8 @@ def load_scenario(scen_id, seed=0):
         raise ValueError(f"scenario '{scen_id}': duplicate unit ids {dupes}")
     units = []
     for su in spec["units"]:
+        if gear and tpl_by_id[su["id"]]["side"] == "player" and su["id"] in gear:
+            su = {**su, **gear[su["id"]]}     # the smith's work rides to war
         u = make_unit(tpl_by_id[su["id"]], *su["spawn"], overrides=su)
         u.garrison = su.get("garrison")
         units.append(u)

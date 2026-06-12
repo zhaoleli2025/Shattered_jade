@@ -19,6 +19,7 @@ import json
 import os
 from dataclasses import dataclass, field
 
+from . import data
 from .hexmath import hex_dist, neighbors
 from .rng import Streams
 
@@ -35,7 +36,16 @@ COST = {"road": 1, "bridge": 1, "settlement": 1, "plain": 2, "ford": 2,
 # mark carves the pass — the only way over a range
 
 HOSTILE = {"bandit", "raider"}
-FRIENDLY_KINDS = {"city", "town", "village"}   # where the bureau can resupply
+FRIENDLY_KINDS = {"city", "town", "village"}   # where the bureau can trade
+
+# ---- the silver economy (M2): markets, escort contracts, the smith ----
+GOLD_START = 100
+PROVISION_PRICE = {"city": 2, "town": 2, "village": 3}   # 两 per day of 粮草
+ESCORT_RATE = 40                                          # 两 per road-day
+BOUNTY_PAY = 260                                          # 两 per razed lair
+QUALITY_LADDER = ("fan", "liang", "jing", "zhen", "shen")
+SMITH_PRICE = {"liang": 100, "jing": 250, "zhen": 600, "shen": 1500}
+GEAR_SLOTS = ("wpn_q", "wpn2_q", "armor_q", "helmet_q")
 
 
 @dataclass
@@ -81,6 +91,9 @@ class WorldState:
     exits: dict = field(default_factory=dict)   # border hexes to neighbor regions
     spotted: set = field(default_factory=set)   # party/lair ids seen at least once
     destroyed: set = field(default_factory=set) # razed lairs
+    gold: int = GOLD_START                      # 银两
+    gear: dict = field(default_factory=dict)    # hero id -> quality slots
+    contract: dict | None = None                # one active job (BB rule)
     events: list = field(default_factory=list)
 
     def emit(self, etype, **kw):
@@ -159,6 +172,9 @@ def load_world(world_id, seed=0):
             raise ValueError(f"exit '{x['id']}' leads to unknown region '{x['to']}'")
         world.exits[x["id"]] = x
     _validate_scenarios(world)
+    # the heroes ride out with their template gear; the smith improves on it
+    world.gear = {tpl["id"]: {k: tpl[k] for k in GEAR_SLOTS if tpl.get(k)}
+                  for tpl in data.ROSTER if tpl["side"] == "player"}
     _spot(world)  # what the bureau can see from the gate on day one
     return world
 
@@ -290,12 +306,92 @@ def _burn_ration(world):
         world.emit("starving")
 
 
-def _resupply(world):
-    """Overnight restock — friendly gates only; ruins and 辽营 feed no one."""
+def _trade_post(world):
+    """The friendly settlement underfoot, if any — where money talks."""
     s = world.at_settlement()
-    if (s and s["kind"] in FRIENDLY_KINDS and s["id"] not in world.destroyed):
-        world.provisions = PROVISIONS_MAX
-    return s
+    if s and s["kind"] in FRIENDLY_KINDS and s["id"] not in world.destroyed:
+        return s
+    return None
+
+
+def market_buy(world, days=None):
+    """市集: provisions for silver. Buys up to `days` (default: fill up).
+    Returns the number bought."""
+    s = _trade_post(world)
+    if not s:
+        return 0
+    price = PROVISION_PRICE[s["kind"]]
+    need = PROVISIONS_MAX - world.provisions
+    if days is not None:
+        need = min(need, days)
+    n = max(0, min(need, world.gold // price))
+    if n:
+        world.provisions += n
+        world.gold -= n * price
+        world.emit("market", bought=n, cost=n * price)
+    return n
+
+
+def jobs(world):
+    """镖单: the board at a friendly settlement — escorts to the nearest
+    cities/towns, plus a bounty on every discovered, standing lair.
+    Deterministic: no dice, the map IS the job board."""
+    s = _trade_post(world)
+    if not s:
+        return []
+    costs, _prev = dijkstra(world, world.party)
+    out = []
+    dests = sorted((x for x in world.settlements.values()
+                    if x["id"] != s["id"] and x["kind"] in ("city", "town")
+                    and x["id"] not in world.destroyed
+                    and tuple(x["at"]) in costs),
+                   key=lambda x: costs[tuple(x["at"])])[:3]
+    for d in dests:
+        days = max(1, -(-costs[tuple(d["at"])] // MOVE_PER_DAY))
+        out.append(dict(kind="escort", to=d["id"], name=f"押镖至{d['name']}",
+                        pay=days * ESCORT_RATE + 20, days=days))
+    for lair in world.settlements.values():
+        if (lair["kind"] == "stronghold" and lair["id"] in world.spotted
+                and lair["id"] not in world.destroyed):
+            out.append(dict(kind="bounty", target=lair["id"],
+                            name=f"剿灭{lair['name']}", pay=BOUNTY_PAY))
+    return out
+
+
+def take_job(world, job):
+    """One active contract at a time (BB rule)."""
+    if world.contract:
+        return False
+    world.contract = dict(job)
+    world.emit("contract_taken", job=dict(job))
+    return True
+
+
+def fail_contract(world):
+    """A lost battle or abandoned cargo voids the bond (callers decide when)."""
+    if world.contract:
+        world.emit("contract_failed", job=world.contract)
+        world.contract = None
+
+
+def smith_upgrade(world, uid, slot):
+    """铁匠铺 (cities only): raise one hero's gear one grade up the 品阶
+    ladder. Returns the new grade, or None if it cannot be done."""
+    s = _trade_post(world)
+    if not s or s["kind"] != "city" or slot not in GEAR_SLOTS or uid not in world.gear:
+        return None
+    cur = world.gear[uid].get(slot, "fan")
+    i = QUALITY_LADDER.index(cur) + 1
+    if i >= len(QUALITY_LADDER):
+        return None
+    nxt = QUALITY_LADDER[i]
+    price = SMITH_PRICE[nxt]
+    if world.gold < price:
+        return None
+    world.gold -= price
+    world.gear[uid][slot] = nxt
+    world.emit("smith", hero=uid, slot=slot, grade=nxt, cost=price)
+    return nxt
 
 
 def _dusk(world):
@@ -311,10 +407,9 @@ def _dusk(world):
 
 
 def camp(world):
-    """Hold position for a day (wait out a patrol, resupply in town)."""
+    """Hold position for a day (wait out a patrol; food still burns)."""
     world.emit("camped", at=list(world.party))
     enc = _dusk(world)
-    _resupply(world)
     world.day += 1
     return enc
 
@@ -347,6 +442,11 @@ def raze(world, lair_id):
         if p.home == tuple(lair["at"]):
             p.alive = False
     world.emit("razed", what=lair_id, name=lair["name"])
+    if (world.contract and world.contract["kind"] == "bounty"
+            and world.contract["target"] == lair_id):
+        world.gold += world.contract["pay"]
+        world.emit("contract_done", job=world.contract, pay=world.contract["pay"])
+        world.contract = None
     return True
 
 
@@ -387,7 +487,14 @@ def travel(world, dest):
             _emit_encounter(world, interceptor)
         else:
             interceptor = _dusk(world)
-        s = _resupply(world)
+        s = world.at_settlement()
+        if (not interceptor and world.contract
+                and world.contract["kind"] == "escort"
+                and s and s["id"] == world.contract["to"]):
+            pay = world.contract["pay"]
+            world.gold += pay
+            world.emit("contract_done", job=world.contract, pay=pay)
+            world.contract = None
         if interceptor or i + 1 >= len(path):
             world.emit("travel", to=list(world.party), days=days,
                        arrive=s["id"] if s else None,
