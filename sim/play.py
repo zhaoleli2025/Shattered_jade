@@ -8,6 +8,11 @@ rules, same dice as the web prototype — this is the playtest harness.
 """
 import sys
 
+try:
+    import readline  # noqa: F401 — arrow keys, history, line editing in input()
+except ImportError:
+    pass
+
 from .ai import ai_turn
 from .commands import Stance, Strike, Swap, resolve, targets_of
 from .engine import run_battle
