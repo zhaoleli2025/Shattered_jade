@@ -1,4 +1,4 @@
-# Shattered Jade (碎玉) — Design Document v0.32
+# Shattered Jade (碎玉) — Design Document v0.33
 
 > **Title: Shattered Jade (碎玉)** — final, 2026-06-11. 宁为玉碎，不为瓦全 ("better
 > shattered jade than intact tile"): the permadeath creed in two characters — your
@@ -952,6 +952,18 @@ timelines are how side projects die — hitting month 6 still in M1 is *on pace*
 ---
 
 ## 10. Changelog
+
+**v0.33 (2026-06-12)** — **the terminal game** (`python3 -m sim.play`) + cpolar
+tunnel removed (user call: too complicated; the one-file edition and the dev
+server remain the two formats). The campaign loop and every battle are now
+playable in a plain SSH terminal: the human controller plugs into the same
+`run_battle` controller slot the AI uses — same engine, same rules, same dice.
+Battle commands: a/s (attack/special with live hit% per target), m (advance on
+a foe or to col/row), w/d/x (stances/swap), auto (hand the unit to the AI),
+log, e. Campaign commands: go 地名/id, camp, assault, who, map. Encounters
+prompt 开战/脱离, victories disband bands or raze lairs, defeats retreat the
+column to the nearest friendly gates — the full loop, no browser. Scripted-
+input smoke tests pin both modes. 118 tests green.
 
 **v0.32 (2026-06-12)** — **the one-file game + a server that can't betray you**
 (fixing the "localhost:8765 won't open" workflow for good). (1) **The FULL
