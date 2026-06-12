@@ -1,0 +1,20 @@
+{
+  "id": "realm",
+  "name": "碎玉 · 天下",
+  "era": "c. 942 · 后晋",
+  "note": "Modular region graph: every area is a world/<id>.json plugged in via border exits (sim/overworld.py cross()). 'built' areas load today; 'planned' areas are sockets — author the file in the hebei/henan pattern, register it here, link the exits, and the realm grows. zhongyuan.json is the composed grand-map preview of the whole.",
+  "preview": "zhongyuan",
+  "pilot": "hebei",
+  "regions": [
+    {"id": "hebei", "name": "河北南部", "status": "built", "links": ["henan", "hedong", "shandong", "youyun"]},
+    {"id": "henan", "name": "河南·京畿", "status": "built", "links": ["hebei", "guanzhong", "huainan", "shandong"]},
+    {"id": "hedong", "name": "河东", "status": "planned", "links": ["hebei", "guanzhong", "xibei"], "note": "井陉 pass from 河北; 太原/潞州/蒲州"},
+    {"id": "guanzhong", "name": "关中", "status": "planned", "links": ["henan", "hedong", "xibei", "jiannan"], "note": "enter at 潼关; 长安/华州/同州"},
+    {"id": "xibei", "name": "西北·朔方", "status": "planned", "links": ["guanzhong", "hedong"], "note": "灵武/夏州 — 党项 frontier"},
+    {"id": "shandong", "name": "山东", "status": "planned", "links": ["hebei", "henan", "huainan"], "note": "青州/兖州/郓州"},
+    {"id": "huainan", "name": "淮南", "status": "planned", "links": ["henan", "shandong", "jingchu"], "note": "南唐 border — 寿州/扬州"},
+    {"id": "jingchu", "name": "荆楚", "status": "planned", "links": ["huainan", "jiannan"], "note": "荆南/楚 — 江陵/潭州"},
+    {"id": "jiannan", "name": "剑南", "status": "planned", "links": ["guanzhong", "jingchu"], "note": "后蜀 — 蜀道/成都"},
+    {"id": "youyun", "name": "幽云·辽境", "status": "planned", "links": ["hebei"], "note": "M4 invasion content — 幽州/契丹"}
+  ]
+}

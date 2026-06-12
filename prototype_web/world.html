@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>碎玉 · 舆图 — Shattered Jade strategic map</title>
+<!-- fonts load async: a slow/blocked CDN must never blank the page -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lxgw-wenkai-webfont@1.7.0/style.css" media="print" onload="this.media='all'">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;700&display=swap" media="print" onload="this.media='all'">
+<style>
+  :root {
+    --paper: #ece3cd; --paper-dark: #e0d4b8; --ink: #2b2620; --ink-soft: #5b5346;
+    --player: #1b4965; --enemy: #8c2f1b; --gold: #b8860b;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--paper); color: var(--ink);
+    font-family: "LXGW WenKai", "Noto Serif SC", "Songti SC", Georgia, serif;
+    display: flex; flex-direction: column; height: 100vh; overflow: hidden;
+  }
+  header {
+    display: flex; align-items: baseline; gap: 16px; padding: 8px 16px;
+    border-bottom: 2px solid var(--ink-soft); background: var(--paper-dark);
+    flex: 0 0 auto;
+  }
+  header h1 { font-size: 20px; margin: 0; letter-spacing: 2px; }
+  header .sub { font-size: 12px; color: var(--ink-soft); }
+  header .spacer { flex: 1; }
+  header .stat { font-size: 13.5px; color: var(--ink); font-family: "Noto Sans SC", sans-serif; }
+  header a.navlink {
+    font-size: 13px; color: var(--ink-soft); text-decoration: none;
+    border: 1px solid var(--ink-soft); border-radius: 3px; padding: 3px 10px;
+  }
+  header a.navlink:hover { background: var(--paper); }
+  button {
+    font-family: inherit; font-size: 14px; padding: 5px 14px; cursor: pointer;
+    background: var(--ink); color: var(--paper); border: none; border-radius: 3px;
+  }
+  button:hover { background: #463f35; }
+  button:disabled { background: #9a917f; cursor: default; }
+  #main { display: flex; flex: 1 1 auto; min-height: 0; }
+  #boardwrap { flex: 1 1 auto; overflow: hidden; display: flex; align-items: center; justify-content: center; padding: 4px; position: relative; }
+  svg#board { display: block; width: 100%; height: 100%; }
+  #panel {
+    flex: 0 0 330px; border-left: 2px solid var(--ink-soft); background: var(--paper-dark);
+    display: flex; flex-direction: column; min-height: 0;
+  }
+  #panel h3 {
+    margin: 0; padding: 6px 12px 4px; font-size: 13px; letter-spacing: 1px;
+    color: var(--ink-soft); border-bottom: 1px solid #c9bda0;
+  }
+  #hoverinfo {
+    padding: 8px 12px; font-size: 12.5px; line-height: 1.5; min-height: 72px;
+    font-family: "Noto Sans SC", sans-serif; white-space: pre-line;
+  }
+  #log {
+    flex: 1 1 auto; overflow-y: auto; padding: 8px 12px; font-size: 12px;
+    line-height: 1.55; font-family: "Noto Sans SC", sans-serif;
+  }
+  #log .r { color: #6b3a2a; }
+  #log .b { color: #24506e; }
+  #log .sys { color: var(--ink-soft); font-style: italic; }
+  #log div { margin-bottom: 2px; border-bottom: 1px dotted #d6cab0; padding-bottom: 2px; }
+  .hex { stroke: #8d8268; stroke-width: .6; cursor: default; }
+  .hex.reach { cursor: pointer; }
+  .hex.reach:hover { stroke: var(--player); stroke-width: 2; }
+  .tglyph { fill: #8d8268; font-size: 9px; text-anchor: middle; pointer-events: none;
+            font-family: "LXGW WenKai", "Noto Serif SC", serif; }
+  .glyph { fill: #f5efe0; font-size: 10px; text-anchor: middle; pointer-events: none;
+           font-family: "LXGW WenKai", "Noto Serif SC", serif; }
+  .plabel { font-size: 9px; fill: #3d362c; text-anchor: middle; pointer-events: none;
+            paint-order: stroke; stroke: rgba(236,227,205,.78); stroke-width: 2.5px;
+            font-family: "LXGW WenKai", "Noto Serif SC", serif; }
+  .slabel { font-size: 8px; fill: #6b6254; text-anchor: middle; pointer-events: none;
+            paint-order: stroke; stroke: rgba(236,227,205,.78); stroke-width: 2px;
+            font-family: "LXGW WenKai", "Noto Serif SC", serif; }
+  #overlay {
+    position: fixed; inset: 0; background: rgba(40,34,26,.78); display: none;
+    align-items: center; justify-content: center; flex-direction: column; gap: 18px;
+    color: var(--paper); z-index: 10; text-align: center;
+  }
+  #overlay h2 { font-size: 42px; margin: 0; letter-spacing: 8px; }
+  #overlay p { max-width: 460px; line-height: 1.7; }
+  #ovbtns { display: flex; gap: 14px; }
+  #ovbtns button.go { background: #6e3328; }
+  #ovbtns button.go:hover { background: #8c4233; }
+</style>
+</head>
+<body>
+<header>
+  <h1>碎玉 · 舆图</h1>
+  <select id="worldpick" style="font-family:inherit;font-size:13px;padding:3px 6px;background:var(--paper);color:var(--ink);border:1px solid var(--ink-soft);border-radius:3px;">
+    <option value="hebei">河北南部 · 试点区</option>
+    <option value="henan">河南 · 京畿</option>
+    <option value="zhongyuan">中原 · 全舆图</option>
+  </select>
+  <span class="sub" id="subtitle"></span>
+  <span class="spacer"></span>
+  <span class="stat" id="daylabel">第 1 日</span>
+  <span class="stat" id="provlabel">粮草 12/12</span>
+  <span class="stat" id="loclabel"></span>
+  <button id="assault" style="display:none">攻寨</button>
+  <button id="razebtn" style="display:none">已荡平</button>
+  <button id="campbtn">扎营一日</button>
+  <a class="navlink" href="index.html">战斗原型</a>
+</header>
+<div id="main">
+  <div id="boardwrap"><svg id="board"></svg></div>
+  <div id="panel">
+    <h3>移动预览 · 悬停舆图</h3>
+    <div id="hoverinfo">悬停可达之处查看路线与行程，点击即出发。官道日行八格，山林减半；大河层峦不可逾，须寻渡桥关陉。</div>
+    <h3>行程日志 · 风尘镖路</h3>
+    <div id="log"></div>
+  </div>
+</div>
+<div id="overlay">
+  <h2 id="ovtitle"></h2>
+  <p id="ovtext"></p>
+  <div id="ovbtns">
+    <button id="ovfight" class="go">开战</button>
+    <button id="ovflee">脱离</button>
+  </div>
+</div>
+<script src="world.js?v=001"></script>
+</body>
+</html>

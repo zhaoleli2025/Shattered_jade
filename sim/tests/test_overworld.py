@@ -256,3 +256,37 @@ def test_departure_beside_a_hostile_is_an_encounter():
     assert days == 1 and w.events[-1]["intercepted"] == "heifeng_band"
     enc = next(e for e in w.events if e["type"] == "encounter")
     assert enc["day"] == w.events[-1]["day"]            # one contact, one day stamp
+
+
+def test_zhongyuan_the_grand_map():
+    """v0.30: the M&B-style fixed realm — one continuous 56×36 中原."""
+    w = load_world("zhongyuan")
+    assert (w.spec["cols"], w.spec["rows"]) == (56, 36)
+    costs, prev = dijkstra(w, w.party)
+    for s in w.settlements.values():
+        assert s["at"] in costs, f"{s['id']} unreachable"
+    # the 太行 is a wall — 镇州→太原 must thread the 井陉 pass
+    p = path_to(prev, w.settlements["taiyuan"]["at"])
+    assert w.sites["jingxing"]["at"] in p
+    mts = [t for t in w.tiles.values() if t.terrain == "mountains"]
+    assert len(mts) > 100 and all(t.cost is None for t in mts)
+    # the realm is big: 镇州→长安 is the better part of a week
+    assert -(-costs[w.settlements["changan"]["at"]] // MOVE_PER_DAY) >= 5
+    # every region of the plan is on the map
+    regions = {s.get("region") for s in w.settlements.values()}
+    assert {"河北", "河南", "河东", "关中", "山东", "幽云·辽"} <= regions
+
+
+def test_realm_registry_is_consistent():
+    """The modular realm: built areas load, links are symmetric sockets."""
+    import sim.overworld as ow
+    realm = json.load(open(os.path.join(ow.WORLD_DIR, "realm.json"), encoding="utf-8"))
+    regions = {r["id"]: r for r in realm["regions"]}
+    assert regions[realm["pilot"]]["status"] == "built"
+    for r in realm["regions"]:
+        for nbr in r["links"]:
+            assert nbr in regions, f"{r['id']} links to unregistered '{nbr}'"
+            assert r["id"] in regions[nbr]["links"], f"{r['id']}↔{nbr} not symmetric"
+        if r["status"] == "built":
+            load_world(r["id"])                 # plugged in and loadable
+    load_world(realm["preview"])                # the composed grand map

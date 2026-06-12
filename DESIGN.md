@@ -1,4 +1,4 @@
-# Shattered Jade (碎玉) — Design Document v0.29
+# Shattered Jade (碎玉) — Design Document v0.30
 
 > **Title: Shattered Jade (碎玉)** — final, 2026-06-11. 宁为玉碎，不为瓦全 ("better
 > shattered jade than intact tile"): the permadeath creed in two characters — your
@@ -952,6 +952,29 @@ timelines are how side projects die — hitting month 6 still in M1 is *on pace*
 ---
 
 ## 10. Changelog
+
+**v0.30 (2026-06-12)** — **the realm goes M&B: grand geography, modular areas,
+and the playable web 舆图**. (1) **中原 grand map** (`world/zhongyuan.json`,
+56×36 ≈ 2,000 hexes, generated with gap-proof hex-line drawing): the M&B fixed
+strategic geography — NEW impassable **mountains** terrain makes ranges walls
+(太行/吕梁/秦岭/中条/嵩山/燕山) pierced only by road-carved passes; the 黄河
+great bend with 蒲津/孟津/白马 crossings; 27 settlements across 关中·河东·河南·
+河北·山东·幽云, 10 anchored sites (潼关·虎牢关·井陉·天井关·拒马二渡…), 10
+roaming parties. 镇州→太原 must thread the 井陉; 镇州→长安 is a 6-day ride.
+(2) **Modular areas** (user direction): `world/realm.json` is the region
+registry — **河北南部 is the pilot**; 河东·关中·西北·山东·淮南·荆楚·剑南·幽云
+are registered as planned sockets that plug in via border exits (author one
+JSON in the hebei/henan pattern, register, link). A test pins registry
+consistency (symmetric links, built areas loadable). (3) **The web 舆图**
+(`prototype_web/world.html`/`world.js`): the strategic map is PLAYABLE in the
+browser — same paper-and-ink language as the battle page; click-to-travel with
+path preview and day estimates, camp, provisions/day HUD, living parties,
+hidden lairs, interception modal whose 「开战」 button opens the battle page
+with the encounter's scenario (the first campaign→battle loop!); world picker
+defaults to the pilot region. (4) **Stable edition is now two files**:
+`release.py` also assembles `shattered_jade_world_vX.Y.html` (worlds embedded,
+offline, battle links pointing at the battle release file beside it).
+116 tests green.
 
 **v0.29 (2026-06-12)** — **the fixed map: anchored sites + several regions** (the
 deliberate divergence from BB: their procgen map is disposable; ours IS the

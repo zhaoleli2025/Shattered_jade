@@ -68,17 +68,26 @@ gets rebuilt — see above).
 
 ## Overworld (M2 track, headless v0)
 
-The strategic layer uses the same hex grid as battles. The first authored region
-is 河北南部 c. 942 — the 拒马河 Khitan frontier, three garrison cities, and the
-bandit hills — in `world/hebei.json`, with the BB living-world layer on top:
-roaming parties (bandits, a caravan, a patrol, Khitan raiders) tick daily and
-intercept the column on contact, hidden lairs are found by proximity, provisions
-burn per day, and an encounter names the battle scenario seeded by the world hex
-(caught at the bridge → 守桥; at a frontier ford → 血战).
+The strategic layer uses the same hex grid as battles, M&B-style on a FIXED
+historical map: mountain ranges are walls pierced by named passes, rivers
+cross at named fords, and battle scenarios are anchored to real places (caught
+at 滹沱桥 → 守桥; at a 拒马 ford → 血战; 虎牢关 is always the duel). The BB
+living-world layer runs on top: roaming parties intercept on contact, hidden
+lairs are found by proximity, provisions burn daily.
+
+**Play it in the browser** — `python3 tools/serve.py`, open `/world.html`:
+click-to-travel with day estimates, camp, encounters whose 「开战」 button
+drops you into the battle page with the right scenario.
+
+The realm is **modular** (`world/realm.json`): 河北南部 (`hebei.json`) is the
+pilot area; 河南·京畿 is built; 河东·关中·西北·山东·淮南·荆楚·剑南·幽云 are
+registered sockets — author one JSON in the same pattern, link the exits, and
+the realm grows. `world/zhongyuan.json` (56×36, 27 settlements) is the composed
+grand-map preview of the whole.
 
 ```python
 from sim.overworld import load_world, travel, render
-w = load_world("hebei", seed=0)
+w = load_world("hebei", seed=0)   # or "zhongyuan" for the grand map
 travel(w, "dingzhou")     # 镇州 → 定州 along the 官道: 2 天 (unless intercepted)
 print(render(w))          # ASCII map: 镖=you 匪=bandits 商=caravan 巡=patrol 骑=Khitan
 ```

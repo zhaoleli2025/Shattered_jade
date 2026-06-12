@@ -30,7 +30,9 @@ SIGHT = 3            # hexes; +1 ending the day on hills (BB: terrain sets sight
 PROVISIONS_MAX = 12  # days of supplies; refilled overnight in friendly settlements
 
 COST = {"road": 1, "bridge": 1, "settlement": 1, "plain": 2, "ford": 2,
-        "hills": 3, "forest": 3, "water": None}
+        "hills": 3, "forest": 3, "water": None, "mountains": None}
+# mountains are walls (M&B: ranges channel armies through passes); a road
+# mark carves the pass — the only way over a range
 
 HOSTILE = {"bandit", "raider"}
 FRIENDLY_KINDS = {"city", "town", "village"}   # where the bureau can resupply
@@ -95,7 +97,8 @@ def load_world(world_id, seed=0):
     with open(os.path.join(WORLD_DIR, world_id + ".json"), encoding="utf-8") as f:
         spec = json.load(f)
     marked = {kind: {tuple(k) for k in spec["map"].get(kind) or []}
-              for kind in ("hills", "forest", "river", "ford", "bridge", "road")}
+              for kind in ("hills", "mountains", "forest", "river", "ford",
+                           "bridge", "road")}
     tiles = {}
     for r in range(spec["rows"]):
         for col in range(spec["cols"]):
@@ -103,6 +106,8 @@ def load_world(world_id, seed=0):
             terrain = "plain"          # later marks override earlier ones
             if (q, r) in marked["hills"]:
                 terrain = "hills"
+            if (q, r) in marked["mountains"]:
+                terrain = "mountains"
             if (q, r) in marked["forest"]:
                 terrain = "forest"
             if (q, r) in marked["road"]:
@@ -169,14 +174,17 @@ def _validate_scenarios(world):
         raise ValueError(f"world '{world.spec['id']}': unknown scenarios {missing}")
 
 
-def dijkstra(world, start):
-    """Total move-point cost to every reachable hex. Returns (costs, prev)."""
+def dijkstra(world, start, goal=None):
+    """Total move-point cost to every reachable hex. Returns (costs, prev).
+    With a goal, stops as soon as the goal's cost is final (big-map speed)."""
     costs, prev = {start: 0}, {}
     frontier = [(0, start)]
     while frontier:
         c, k = heapq.heappop(frontier)
         if c > costs.get(k, 1 << 30):
             continue
+        if k == goal:
+            break
         for nk in neighbors(*k):
             t = world.tiles.get(nk)
             if t is None or t.cost is None:
@@ -218,7 +226,7 @@ def _step_toward(world, party, dest):
     """Advance a party up to its speed along the cheapest path."""
     if party.pos == dest:
         return
-    costs, prev = dijkstra(world, party.pos)
+    costs, prev = dijkstra(world, party.pos, goal=dest)
     if dest not in costs:
         return
     path = path_to(prev, dest)
@@ -391,7 +399,7 @@ def travel(world, dest):
 
 
 GLYPH = {"plain": "·", "road": "路", "hills": "山", "forest": "林",
-         "water": "～", "ford": "渡", "bridge": "桥"}
+         "water": "～", "ford": "渡", "bridge": "桥", "mountains": "峰"}
 KIND_GLYPH = {"city": "◎", "town": "○", "village": "村",
               "stronghold": "寨", "occupied": "辽"}
 PARTY_GLYPH = {"bandit": "匪", "caravan": "商", "patrol": "巡", "raider": "骑"}
