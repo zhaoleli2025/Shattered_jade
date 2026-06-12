@@ -48,6 +48,17 @@ def ai_turn(state, u):
                     if chance_vs(state, u, tgts[0]) < 55:
                         resolve(state, u, Strike(tgts[0].uid, special=True))
                         continue
+                elif sp["type"] == "demolish":
+                    tough = next((x for x in tgts if x.armor_b >= 50), None)
+                    if tough:
+                        resolve(state, u, Strike(tough.uid, special=True))
+                        continue
+                elif sp["type"] == "headhunt":
+                    # gamble only from a strong base — a whiff overswings (−15 气)
+                    bare = next((x for x in tgts if x.armor_h <= 15), None)
+                    if bare and chance_vs(state, u, bare) >= 50:
+                        resolve(state, u, Strike(bare.uid, special=True))
+                        continue
             if can_attack(u):
                 resolve(state, u, Strike(tgts[0].uid))
                 continue

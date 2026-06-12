@@ -86,7 +86,8 @@
     },
     {
       "id": "yemao",
-      "spawn": [7, 4]
+      "spawn": [7, 4],
+      "wpn_q": "liang"
     },
     {
       "id": "shemao",

@@ -28,7 +28,8 @@ def ready(u):
 def test_strike_costs_and_min_range():
     s = S()
     # park the other bandits out of bow range
-    for uid, pos in [("erma", (4, 8)), ("xiaohu", (5, 8)), ("yemao", (6, 8)), ("diao", (7, 8))]:
+    for uid, pos in [("erma", (4, 8)), ("xiaohu", (5, 8)), ("yemao", (6, 8)),
+                     ("diao", (7, 8)), ("zuanshan", (8, 8))]:
         move_to(s, uid, *pos)
     yan = ready(move_to(s, "yan", 0, 0))
     move_to(s, "duyan", 1, 0)                # adjacent → bow may NOT fire

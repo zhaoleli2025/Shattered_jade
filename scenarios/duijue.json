@@ -50,7 +50,8 @@
     },
     {
       "id": "diao",
-      "spawn": [9, 4]
+      "spawn": [9, 4],
+      "armor_q": "liang"
     },
     {
       "id": "xiaohu",

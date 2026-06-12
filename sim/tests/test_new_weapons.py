@@ -111,3 +111,75 @@ def test_garrison_holds_position():
     n = len([e for e in s.events if e["type"] in ("hit", "miss")])
     ai_turn(s, shemao)
     assert len([e for e in s.events if e["type"] in ("hit", "miss")]) > n
+
+
+# ---- the polearm sweepers (戟 / 大关刀) and the revised specials ----
+
+def test_ji_reach_and_sweep():
+    s = S()
+    ji = ready(move_to(s, "zuanshan", 4, 4))
+    park_others(s, {"zuanshan", "chen", "he", "shemao"})
+    move_to(s, "chen", 6, 4)                 # dist 2 — in halberd reach
+    from sim.commands import Strike, melee_targets
+    assert [t.uid for t in melee_targets(s, ji)] == ["chen"]
+    move_to(s, "he", 5, 4)                   # adjacent foe
+    move_to(s, "shemao", 3, 4)               # adjacent friend — the swing is blind
+    ji.skill = 1000
+    n = len([e for e in s.events if e["type"] == "hit"])
+    assert resolve(s, ji, Strike("", special=True)) is True
+    swept = [e for e in s.events if e["type"] == "hit"][n:]
+    assert sorted(e["dfn"] for e in swept) == ["he", "shemao"]  # chen at reach 2 is spared
+    assert all(e["tag"] == "横扫" for e in swept)
+
+
+def test_daguandao_chop_and_bleed():
+    w = data.WEAPONS["daguandao"]
+    _, body = compute_damage(30, 0, w, head=False)
+    _, head = compute_damage(30, 0, w, head=True)
+    assert head == int(body * 2.25 + 0.5)    # chop blade
+    s = S()
+    zhou = ready(move_to(s, "zhou", 0, 0))
+    foe = move_to(s, "duyan", 1, 0)
+    s.rng = FakeRNG([1, 100, 30])            # hit, body, dmg 30
+    apply_hit(s, zhou, foe)
+    assert foe.bleed == 2                    # the great blade cuts deep
+
+
+def test_ai_demolish_smashes_heavy_armor():
+    s = S()
+    shi = ready(move_to(s, "shi", 6, 6))
+    park_others(s, {"shi", "diao"})
+    move_to(s, "diao", 6, 7)                 # tiejia 110 — worth the 碎甲
+    s.rng = FakeRNG(default=100)
+    ai_turn(s, shi)
+    assert any(e.get("tag") == "碎甲" for e in s.events)
+
+
+def test_ai_headhunt_cracks_bare_skull():
+    s = S()
+    whip = ready(move_to(s, "he", 6, 6))
+    park_others(s, {"he", "yemao"})
+    move_to(s, "yemao", 6, 7)                # no helmet — the whip goes upstairs
+    s.rng = FakeRNG(default=100)
+    ai_turn(s, whip)
+    assert any(e.get("tag") == "兜头" for e in s.events)
+
+
+def test_headhunt_whiff_drains_breath():
+    """兜头 is a gamble: −15 to land, and the overswing costs 15 extra Breath."""
+    s = S()
+    whip = ready(move_to(s, "he", 6, 6))
+    park_others(s, {"he", "duyan"})
+    move_to(s, "duyan", 6, 7)
+    from sim.commands import Strike
+    s.rng = FakeRNG(default=100)             # whiff the gamble
+    br0 = whip.breath
+    assert resolve(s, whip, Strike("duyan", special=True)) is True
+    assert [e for e in s.events if e["type"] == "miss"][-1]["tag"] == "兜头"
+    assert br0 - whip.breath == 16 + 15      # swing cost + the overswing
+    # a landed gamble pays only the swing cost
+    ready(whip)
+    s.rng = FakeRNG([1, 0, 20])
+    br1 = whip.breath
+    assert resolve(s, whip, Strike("duyan", special=True)) is True
+    assert br1 - whip.breath == 16

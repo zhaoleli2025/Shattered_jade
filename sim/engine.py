@@ -8,8 +8,8 @@ from .commands import exec_move
 from .rules import check_end, kill
 
 # Harness extension: the prototype has no round cap or draw concept; the cap
-# exists so headless batches always terminate. Real battles peak well below it
-# (observed max 27 over 10k fuzzed seeds).
+# exists so headless batches always terminate. Most battles end well under 30
+# rounds; shouqiao's rout-and-rally chokepoint hits the cap in ~0.7% of seeds.
 MAX_ROUNDS = 100
 
 

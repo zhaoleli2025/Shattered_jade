@@ -10,6 +10,7 @@ import os
 from dataclasses import dataclass, field
 
 from . import data
+from .hexmath import js_round
 from .rng import Streams
 
 SCENARIO_DIR = os.path.join(os.path.dirname(__file__), "..", "scenarios")
@@ -147,9 +148,14 @@ def load_scenario(scen_id, seed=0):
     unknown = [su["id"] for su in spec["units"] if su["id"] not in tpl_by_id]
     if unknown:
         raise ValueError(f"scenario '{scen_id}': unknown unit ids {unknown}")
+    # JS parity: boot() rejects double-fielded templates (uids must be unique)
+    ids = [su["id"] for su in spec["units"]]
+    dupes = sorted({i for i in ids if ids.count(i) > 1})
+    if dupes:
+        raise ValueError(f"scenario '{scen_id}': duplicate unit ids {dupes}")
     units = []
     for su in spec["units"]:
-        u = make_unit(tpl_by_id[su["id"]], *su["spawn"])
+        u = make_unit(tpl_by_id[su["id"]], *su["spawn"], overrides=su)
         u.garrison = su.get("garrison")
         units.append(u)
     return BattleState(tiles=tiles_from_spec(spec["map"]), units=units,
@@ -157,19 +163,73 @@ def load_scenario(scen_id, seed=0):
                        cols=spec["map"]["cols"], rows=spec["map"]["rows"])
 
 
-def make_unit(tpl, q, r):
+def quality_of(qid):
+    """Look up a 品阶 grade; quality buys numbers, family buys verbs."""
+    if qid not in data.QUALITY:
+        raise ValueError(f"unknown quality id '{qid}' (valid: {list(data.QUALITY)})")
+    return data.QUALITY[qid]
+
+
+def q_round(x):
+    """Half-up round at the table's 2-decimal precision: float dust would turn
+    110×1.15 (= 126.4999…) into 126; snapping to 2 decimals first gives 127."""
+    return js_round(js_round(x * 100) / 100)
+
+
+def grade_weapon(wpn, gr):
+    """Apply a quality grade to a (deep-copied) weapon dict in place."""
+    wpn["dmin"] = q_round(wpn["dmin"] * gr["dmg"])
+    wpn["dmax"] = q_round(wpn["dmax"] * gr["dmg"])
+    wpn["br_tax"] = q_round(wpn["br_tax"] * gr["br_tax"])  # finer work hangs lighter
+    wpn["acc"] += gr["acc"]
+    if gr["rank"]:
+        wpn["label"] = gr["label"] + "·" + wpn["label"]
+    wpn["quality"] = gr["id"]
+    return wpn
+
+
+def grade_armor(piece, gr):
+    """Quality-adjusted copy of an armor/helmet entry (base table untouched)."""
+    piece = dict(piece)
+    piece["protect"] = q_round(piece["protect"] * gr["protect"])
+    piece["br_tax"] = q_round(piece["br_tax"] * gr["br_tax"])
+    if gr["rank"]:
+        piece["label"] = gr["label"] + "·" + piece["label"]
+    piece["quality"] = gr["id"]  # mirror game.js gradeArmor
+    return piece
+
+
+def _grade_of(ov, tpl, k):
+    """Override → template → 凡品, by ABSENCE only (None/missing falls back;
+    a present-but-bogus value like "" must fail loud, never mask)."""
+    v = ov.get(k)
+    if v is None:
+        v = tpl.get(k)
+    return quality_of("fan" if v is None else v)
+
+
+def make_unit(tpl, q, r, overrides=None):
     sq, sr = q, r
-    body = data.ARMOR[tpl["armor"]]
-    helm = data.ARMOR[tpl["helmet"]]
+    ov = overrides or {}
+    # eager for all four slots: a bad wpn2_q throws even with no sidearm
+    gr = {k: _grade_of(ov, tpl, k)
+          for k in ("wpn_q", "wpn2_q", "armor_q", "helmet_q")}
+    body = grade_armor(data.ARMOR[tpl["armor"]], gr["armor_q"])
+    helm = grade_armor(data.ARMOR[tpl["helmet"]], gr["helmet_q"])
+    wpn = grade_weapon(copy.deepcopy(data.WEAPONS[tpl["wpn"]]), gr["wpn_q"])
+    wpn2 = (grade_weapon(copy.deepcopy(data.WEAPONS[tpl["wpn2"]]), gr["wpn2_q"])
+            if tpl.get("wpn2") else None)
     u = Unit(
         uid=tpl["id"], name=tpl["name"], glyph=tpl["glyph"], side=tpl["side"],
         q=sq, r=sr, hp_max=tpl["hp_max"], skill=tpl["skill"], dfn=tpl["dfn"],
         shield=tpl["shield"], resolve=tpl["resolve"], init_base=tpl["init_base"],
-        breath_max=tpl["breath_base"] - body["weight"] - helm["weight"],
+        # 坠气: everything strapped on drags on his wind — sidearm too,
+        # even sheathed (换械 recomputes nothing)
+        breath_max=tpl["breath_base"] - body["br_tax"] - helm["br_tax"]
+        - wpn["br_tax"] - (wpn2["br_tax"] if wpn2 else 0),
         armor_b=body["protect"], armor_h=helm["protect"],
         armor_name=body["label"], helm_name=helm["label"],
-        wpn=copy.deepcopy(data.WEAPONS[tpl["wpn"]]),
-        wpn2=copy.deepcopy(data.WEAPONS[tpl["wpn2"]]) if tpl.get("wpn2") else None,
+        wpn=wpn, wpn2=wpn2,
         leader=tpl.get("leader", False),
     )
     u.hp, u.breath = u.hp_max, u.breath_max

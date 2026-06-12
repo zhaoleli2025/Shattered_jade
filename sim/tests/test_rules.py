@@ -94,14 +94,17 @@ def test_hammer_vs_110_armor_trace():
         armor -= armor_dmg
 
 
-def test_demolish_is_pure_armor():
+def test_demolish_smashes_armor_then_bruises():
+    """碎甲 revised: armor ×3 (capped), then pierce trauma vs the REMAINING armor."""
     w = data.WEAPONS["dachui"]
     opts = special_opts(w["special"])
     armor_dmg, hp = compute_damage(34, 110, w, head=False, opts=opts)
-    assert armor_dmg == 102 and hp == 0
-    # head demolish still does zero HP (no crit multiplier on nothing)
+    assert armor_dmg == 102 and hp == 6    # 34×0.2 − 0.1×(110−102)
+    # head demolish: helmet caved, trauma unmultiplied (no crit on the smash)
     armor_dmg, hp = compute_damage(34, 90, w, head=True, opts=opts)
-    assert hp == 0
+    assert armor_dmg == 90 and hp == 7     # 34×0.2 − 0, no ×1.5
+    # bare target: blunt trauma only — no overflow channel
+    assert compute_damage(34, 0, w, head=False, opts=opts) == (0, 7)
 
 
 def test_head_multipliers():
@@ -113,6 +116,11 @@ def test_head_multipliers():
     _, b = compute_damage(30, 0, axe, head=False)
     _, h = compute_damage(30, 0, axe, head=True)
     assert h == int(b * 2.25 + 0.5)
+    whip = data.WEAPONS["jiujiebian"]  # 兜头: forced head at ×2.0, not ×1.5
+    opts = special_opts(whip["special"])
+    _, wb = compute_damage(30, 0, whip, head=False)
+    _, wh = compute_damage(30, 0, whip, head=True, opts=opts)
+    assert wh == wb * 2
 
 
 def test_dagger_puncture():

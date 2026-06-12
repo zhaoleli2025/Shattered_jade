@@ -1,4 +1,4 @@
-# Shattered Jade (碎玉) — Design Document v0.21
+# Shattered Jade (碎玉) — Design Document v0.24
 
 > **Title: Shattered Jade (碎玉)** — final, 2026-06-11. 宁为玉碎，不为瓦全 ("better
 > shattered jade than intact tile"): the permadeath creed in two characters — your
@@ -213,13 +213,20 @@ essential Khitan Invasion; the two variable crises are post-v1.**
 
 Hex grid, individual initiative (not team turns), 12 fielded default (engine supports
 18). Battlefield generated from the overworld tile. Deployment phase with saved default
-formations — surfaced by onboarding (F14), not buried.
+formations — surfaced by onboarding (F14), not buried. *(Harness rule, not a combat
+rule: headless batches — sim `engine.py` — terminate an undecided battle as a draw at
+round 100 so AI-vs-AI runs always halt; most battles end well under 30 rounds, but
+守桥's rout-and-rally chokepoint grinds to the cap in ~0.7% of seeds — those score
+as draws. The prototype has no cap.)*
 
 ### 3.1 Action economy — two stacked resources
 
 - **AP**: 9 per turn, full refresh. Move 2 AP flat or road / 3 rough / 4 paddy-water;
   +1 per level climbed (uphill only — both implementations charge nothing downhill;
-  wording fixed v0.21). Most 1H attacks 4 AP; heavy 2H attacks 6 AP.
+  wording fixed v0.21). Most 1H attacks 4 AP; heavy 2H attacks 6 AP. *(M0 terrain:
+  flat/road 2 AP, forest 3; the implemented `water` is 守桥's impassable river —
+  nobody enters it. The wade-through 4-AP paddy and its ×0.75 melee multiplier
+  (§3.3 M3) are future terrain.)*
 - **Switching weapons** (to a bagged sidearm) costs **4 AP** — the pinned archer's
   dagger, the spearman's backup saber. A Quick-Hands-style technique makes the first
   swap each turn free (later).
@@ -231,11 +238,20 @@ formations — surfaced by onboarding (F14), not buried.
 - **Breath (气力)** — a **depleting pool** (display flipped from BB's accumulating
   fatigue; identical math, reads naturally in both languages: 气力用尽 = can't act).
   Start full; every action drains it; recover 15/turn; at zero you can neither move nor
-  strike. Max Breath is reduced by carried weight (armor, helmet, weapon, shield).
-  Being struck drains extra (−5; hammers and maces more). Jiangshi never tire.
-- **Initiative** = base − Breath spent − weight penalty, recomputed each round, highest
-  first. *(M0 implements base − Breath spent only; the explicit weight term is deferred
-  to M1 — armor weight already taxes max Breath, so heavies still slide as they tire.)*
+  strike. Being struck drains extra (−5 baseline; a weapon's declared drain **replaces**
+  it, never stacks — 大锤 drains 20 total, not 25). Jiangshi never tire.
+- **坠气 (the carry tax)** — everything an escort straps on drags on his wind. Every
+  equipped item — armor, helmet, weapon, the bagged sidearm (and shields, when they
+  land) — declares a 坠气 value, and **max Breath = base − total 坠气**: BB's
+  carry-fatigue made diegetic. The sidearm's tax is paid all battle, sheathed or drawn;
+  换械 swaps the verbs, never the math. 坠气 is deliberately distinct from the
+  per-strike 气力 cost — one is what you carry, the other is what you spend.
+- **Initiative** = base − Breath spent − 坠气 penalty, recomputed each round, highest
+  first. *(M0 implements base − Breath spent only; the explicit 坠气 term is deferred
+  to M1 — 坠气 already taxes max Breath, so heavies still slide as they tire.)*
+  Implemented timing, both engines: the queue is sorted **once at round start, before
+  any upkeep** (the +15 recovery never reorders the round in progress); ties keep
+  scenario unit order (stable sort) — load-bearing for JS replay parity.
   The 轻功 *Lightness* technique converts current initiative into defense — so
   exhaustion erodes exactly the builds that depend on speed.
 
@@ -252,19 +268,22 @@ system**: 25% base, ×1.5 HP damage, routed to the helmet pool. Meteor hammers a
 nine-section whips hunt heads (+10/15%); the 铁头功 *Iron Skull* technique negates bonus
 head damage.
 
-**Armor tiers (v0.17, live in demo + sim)** — protection is bought with weight, and
-weight is paid in max Breath (气力上限 = 体格底子 − 甲重 − 盔重), the BB trade-off:
+**Armor tiers (v0.17, live in demo + sim)** — protection is bought with 坠气, and 坠气
+is paid in max Breath (气力上限 = 体格底子 − 甲坠 − 盔坠 − 兵坠 − 副兵坠, §3.1), the
+BB trade-off:
 
 | Tier | Body 甲 | Helmet 盔 |
 | --- | --- | --- |
-| Light 布 (cloth) | 布甲 护 25 · 重 3 | 布帽 护 15 · 重 1 |
-| Medium 皮 (leather) | 皮甲 护 60 · 重 8 | 皮盔 护 40 · 重 3 |
-| Heavy 铁 (iron) | 铁甲 护 110 · 重 16 | 铁盔 护 80 · 重 7 |
+| Light 布 (cloth) | 布甲 护 25 · 坠气 3 | 布帽 护 15 · 坠气 1 |
+| Medium 皮 (leather) | 皮甲 护 60 · 坠气 8 | 皮盔 护 40 · 坠气 3 |
+| Heavy 铁 (iron) | 铁甲 护 110 · 坠气 16 | 铁盔 护 80 · 坠气 7 |
 
-A full iron loadout costs 23 Breath off the cap — the iron man starts every battle a
-quarter of his stamina poorer than the runner, and slides down the initiative order as
-he tires. (Iron helms will additionally cost Vision when that rule lands, M2; named
-armors like 山文甲 become the famed-gear layer above these tiers.)
+A full iron loadout costs 23 Breath off the cap before the weapon's own 坠气 (§3.10) —
+石敢当 in iron with the great maul opens at 64 of 93. The iron man starts every battle
+a quarter of his stamina poorer than the runner, and slides down the initiative order
+as he tires. Tier numbers are 凡品 base values — quality grades (§3.11) scale
+protection up and 坠气 down from here. (Iron helms will additionally cost Vision when
+that rule lands, M2; named armors like 山文甲 are 神品-grade pieces, §3.11.)
 
 ### 3.3 Hit formula (fully surfaced in UI)
 
@@ -284,9 +303,13 @@ hand-written numbers, so tooltips can't lie (BB's Goedendag bug).
 **Staged rollout (decided)** — the resolution is always "one d100 under the chance";
 the modifier list grows with the milestones, never the mechanic:
 
-- **M0/M1**: `skill − defense + weapon-skill accuracy + height (±10/level) +
-  surround (+5/extra attacker)`, clamp 5–95, plus the simple morale multiplier
-  (3 states). Nothing else. The player always sees one number; hover shows the parts.
+- **M0/M1**: `skill − defense + weapon accuracy + height (±10/level) +
+  surround (+5/extra attacker) + long thrust (−15 on any 2-hex melee attack) +
+  special accuracy mods (瞄准 +10, 横扫 −10) − ranged per-hex falloff`, clamp 5–95;
+  the simple morale multiplier (3 states, ×1.0/0.9/0.7 — scales attacker skill and
+  defender defense); flails ignore the shield's base defense; 举盾 doubles it.
+  That is the complete M0 list — nothing else. The player always sees one number;
+  hover shows the parts.
 - **M2**: injuries' stat multipliers, night (×0.7 ranged), defense soft cap (>50
   counts half).
 - **M3**: terrain multipliers (paddy ×0.75), full 6-state morale, Lone-Wolf-style
@@ -295,27 +318,46 @@ the modifier list grows with the milestones, never the mechanic:
 ### 3.4 Vision
 
 Each unit has a Vision stat (default 7 hexes): caps ranged targeting and what's spotted
-in forests. **Heavy helmets reduce Vision** — the second counterweight (besides weight)
+in forests. **Heavy helmets reduce Vision** — the second counterweight (besides 坠气)
 that keeps "always wear the heaviest helmet" from being degenerate. Night: −2 Vision on
 top of the ranged penalty. Each elevation level: +1 Vision and +1 bow range. On the
-overworld, terrain and night shrink sight radius.
+overworld, terrain and night shrink sight radius. *(M0 deferral, recorded v0.21:
+vision/fog is pushed to M1 — neither implementation has a Vision stat; the only piece
+live in M0 is +1 bow range per elevation level.)*
 
 ### 3.5 Morale — the cascade engine
 
-Six states (Unbreakable→Fleeing), flat multipliers per state. Checks are never
-pre-announced; **after resolution the log shows trigger, base Nerve 胆识, every modifier,
-the roll, and the resulting state** (F1). Triggers scale with victim importance and
+Six states (Unbreakable→Fleeing), flat multipliers per state *(the full 6-state ladder
+incl. ×1.1 is M3; M0 ships three — Steady/Wavering/Fleeing at ×1.0/0.9/0.7)*. Checks
+are never pre-announced; **after resolution the log shows trigger, base Nerve 胆识,
+every modifier, the roll, and the resulting state** (F1) — implemented as of v0.24:
+a check is `d100 ≤ 胆识 + 3 × adjacent allies + situational mod`, and both engines
+carry the full breakdown (base / adj / mod) on every morale event, so the log prints
+each term, not just the combined target. M0 triggers: taking ≥15 HP in one hit (−10);
+an ally dying within 5 hexes (−15 if a leader, a further −10 from 斩首 terror).
+Triggers scale with victim importance and
 proximity. Routing the enemy is a victory condition. The banner-bearer (旗手) radiates
 resolve — and the bureau's 镖旗 is a real in-fiction object (§5.5). Pure Lotus fanatics
 never check; ghosts attack Nerve directly (the social stat doubles as anti-magic).
+
+Known flow rule (both implementations agree, pinned): a kill's ripple morale checks
+resolve **before** the end-of-battle check, and a 横扫 sweep keeps swinging at its
+remaining adjacent victims after the battle ends — so morale/hit events can trail
+`battle_end` in the log. The winner is locked by the over-guard; the trailing events
+change nothing.
 
 ### 3.6 Positioning rules
 
 - **Zone of control**: leaving an adjacent enemy's reach triggers a free strike from
   each adjacent foe; *a hit cancels the move*. Escape tools (Crane Step, ally swap,
-  smoke bombs 烟雾弹) are real purchases.
-- **Surround**: −5 effective defense per attacker beyond the first. Explicit rule
-  (BB's documented oversight, fixed): **never applies to friendly fire**.
+  smoke bombs 烟雾弹) are real purchases. Cost rule (BB, implemented): AP and Breath
+  for the **whole intended path are spent up front** — a ZoC- or spearwall-blocked
+  move does not refund the unwalked remainder. A cancelled move still costs.
+- **Surround**: +5 hit per melee attacker on the target beyond the first (fleeing
+  allies don't count toward the ring). Implemented attacker-side — under M0's linear
+  math identical to "−5 effective defense per extra attacker"; when the M2 defense
+  soft cap lands, the two diverge and the term must move to the defense side.
+  Explicit rule (BB's documented oversight, fixed): **never applies to friendly fire**.
 - **High ground**: ±10%/level; the AI values hills (v0 AI: simple tile-preference rule).
 - **Night**: ranged skill and ranged defense ×0.7, −2 Vision — attack the crossbow camp
   at night. Strategic scheduling as tactical counterplay.
@@ -331,8 +373,10 @@ through blockers multiplies chance ×0.25; a blocked miss can stray into the obs
 Shots over an ally at exactly 2 hexes are safe. **Scatter**: a missed shot at range >2
 can hit a unit adjacent to the aim point (shields protect; ×0.75 damage) — firing into
 a melee scrum is tempting and genuinely dangerous to friends. **Ranged friendly fire is
-ON** (it's the archer's core risk decision) — but, consistent with §3.6, *surround
-bonuses never apply to it*.
+ON from M1** (it's the archer's core risk decision) — but, consistent with §3.6,
+*surround bonuses never apply to it*. *(M1 deferrals, recorded v0.21/v0.24: scatter
+AND the line-of-fire ×0.25 blocker rule — M0 has neither; M0 shots fly true and can
+only target enemies, so the only friendly fire in M0 is 横扫 sweep, §3.10.)*
 
 ### 3.8 Retreat and withdrawal
 
@@ -344,7 +388,17 @@ pursuit on the overworld. Retreat is a core skill — "know when to say no". *(M
 only the involuntary rout-flee path; the ordered per-man Withdraw command joins the
 schema in M1.)*
 
+Implemented rout numerics (M0, both engines): a fleeing man's upkeep first attempts a
+**rally — only with no adjacent enemy**, at `d100 ≤ 胆识 + 10 × rounds fled`, and
+recovery is to **Wavering only**, never straight to Steady. Otherwise he runs toward
+**his own deployment edge column** (player col 0, enemy the far column); on reaching
+it he has *escaped* — removed from the field, counted toward elimination (溃走 in the
+battle summary), gear and all.
+
 ### 3.9 Injuries — the tactical↔strategic bridge
+
+*(All of §3.9 is M2 — neither implementation has wounds or the struck-down save yet;
+in M0 a man at 0 HP is dead.)*
 
 - **Temporary**: any hit ≥10 HP can wound (threshold = % of max HP); wounds degrade
   stats mid-fight and take days + medicine (金疮药) to heal.
@@ -365,7 +419,8 @@ at roughly twice the 1H number (BB's 2H scaling):
 - **Damage line** (BB greatsword/greataxe): 斩马刀, 大斧, 大刀 — ~2× 1H damage,
   head-hit bonuses, AoE arcs (Round Swing −10 acc), terror.
 - **Armor line** (BB 2H hammer/mace): 大锤, 狼牙棒 — armor effectiveness ×2, heavy
-  Breath drain on hit (+20), stun verbs; strips any tank in 2–3 swings, then crushes.
+  Breath drain on hit (20, **replacing** the −5 baseline, §3.1), stun verbs; strips
+  any tank in 2–3 swings, then crushes.
 
 Beyond grip, families differentiate along the resource axes — AP, Breath, armor
 knobs, reach, verbs:
@@ -376,21 +431,73 @@ knobs, reach, verbs:
 | **Dao 刀** (saber) | Cleaver | Bleeding wounds, Decapitate; the killer's tool |
 | **Qiang 枪** (long spear) | Spear + Pike | **Two-handed, 2-hex reach** (long thrust −15 acc unless mastered), +20 thrust accuracy, **Spearwall** (free strikes on approach; anti-cavalry). 短矛 short spear is the 1H+shield variant |
 | **Chui 锤** (mace/hammer) | Hammer | Armor destruction verbs (×1.5–2 armor damage) |
-| **Fu 斧** (axe) | Axe | Split Shield, +50% head-hit damage Chop |
-| **Guandao 关刀 / Ji 戟** | Polearm | 2-hex reach, −15 acc unless mastered |
-| **流星锤 / 九节鞭** (meteor hammer / nine-section whip) | Flail | Ignores shield defense; head-hunter (+10/15%) |
+| **Fu 斧** (axe) | Axe | Split Shield *(deferred with shield durability)*, +50% head-hit damage Chop (×2.25) |
+| **Guandao 关刀 / Ji 戟** | Polearm | 2-hex reach, −15 acc unless mastered. **戟 implemented** (2H reach 2, acc 12, 22–32, armor_eff 1.0, pierce 0.35, 6 AP/15 Breath, 坠气 5) — reach *and* the round swing: it carries 横扫. **大关刀 implemented** as the family's 1-hex heavy blade (2H, acc 8, 28–42, armor_eff 1.2, pierce 0.30, 6 AP/17 Breath, 坠气 6, chop ×2.25 head, bleed, 横扫). Generic 关刀 future |
+| **流星锤 / 九节鞭** (meteor hammer / nine-section whip) | Flail | Ignores shield defense (a raised shield's extra still counts); head-hunter — 九节鞭 +10% head chance, **兜头 headhunt** (5 AP/16 Breath) is the gamble swing: forces the head hit at **×2.0** but at **−15 accuracy**, and a whiff **overswings for 15 extra Breath** (a full turn's recovery, and initiative sinks with it). Data-driven `head_mult`/`acc`/`miss_br` on the special. 流星锤 future |
 | **Bi shou 匕首** (dagger) | Dagger | Puncture: 100% armor-pierce, 0% armor damage |
 | **Gong 弓** (bow) | Bow | Range 7, falloff per hex; volume of fire |
 | **Nu 弩** (crossbow) | Crossbow | Flat power, armor-piercing; 连弩 repeating variant: 3 weak bolts |
 | **暗器** (hidden weapons: 飞刀, darts) | Throwing | +20 acc close, useless far; by jianghu tradition, the same 镖 as the bureau's name |
 | **斩马刀 / 大斧 / 大刀** (2H damage line) | Greatsword/Greataxe | ~2× 1H damage, +5 head chance, AoE arcs, terror |
-| **大锤 / 狼牙棒** (2H armor line) | 2H Hammer/Mace | Armor effectiveness ×2, +20 Breath drain on hit, stun verbs |
+| **大锤 / 狼牙棒** (2H armor line) | 2H Hammer/Mace | Armor effectiveness ×2, 20 Breath drain on hit (replaces the −5 baseline), stun verbs. **碎甲 demolish** (6 AP/20 Breath, reworked v0.24): armor damage = dmg ×3 capped at the armor present; then blunt trauma through what's left — HP = dmg × pierce − 10% of the armor *remaining after the strip*; no head multiplier, no overflow channel — the ×3 is the verb. 狼牙棒 future |
+
+Every family also declares its 坠气 by heft — dagger 1 … crossbow/long spear 4,
+great-axe/戟 5, maul/大关刀 6 (§3.1) — the third cost axis after AP and per-strike
+Breath.
+
+Two cross-family verbs, pinned as implemented (M0):
+
+- **横扫 sweep** — carried by **three** weapons: 大斧, 戟, 大关刀. 6 AP / 20 Breath,
+  −10 acc, one swing at **every unit in the adjacent ring, friend and foe** (reach
+  weapons still sweep only the adjacent ring) — M0's only source of friendly fire
+  (§3.7), and 围攻 never applies to it (§3.6).
+- **Bleed** — 腰刀/砍刀/九环刀/大关刀: any hit dealing **≥6 HP** sets 2 bleed ticks —
+  5 HP at each of the victim's next two upkeeps; re-application refreshes the count to
+  2 (no stacking); set even on a killing blow (inert on the dead — JS parity).
+
+M0's shipped arsenal (sim `data.py` = `game.js`, 14 weapons): 长枪 · 短矛 · 腰刀 ·
+砍刀 · 九环刀 · 短刀 · 大锤 · 大斧 · 戟 · 大关刀 · 九节鞭 · 匕首 · 猎弓 · 弩 — the
+rest of the table (剑, 流星锤, 暗器, 连弩, 斩马刀, 大刀, 狼牙棒, generic 关刀) is the
+v1 target arsenal, post-M0.
 
 Shields (rattan 藤牌, lacquered round, pavise) keep the BB triangle: axes split them,
 meteor hammers ignore them, everyone else respects them. **Raise Shield (举盾,
 BB's Shieldwall)**: 4 AP + 10 Breath, doubles the shield's defense bonus until the
 bearer's next turn; later, +5 more per adjacent ally also raising (the wall). **Weapon
-durability** drains slowly vs armor, never vs flesh.
+durability** drains slowly vs armor, never vs flesh *(durability — weapon and shield —
+is deferred past M0; the axe's Split Shield verb waits on it)*.
+
+### 3.11 Equipment quality grades (品阶)
+
+Five grades, orthogonal to item identity — BB's named/famed-item ladder made
+systematic. Both implementations carry exactly this table:
+
+| Grade | Color | Damage | Accuracy | Protection | 坠气 |
+| --- | --- | --- | --- | --- | --- |
+| 凡品 fan | white `#9b9b9b` | ×1.00 | +0 | ×1.00 | ×1.00 |
+| 良品 liang | green `#3f8f4a` | ×1.10 | +2 | ×1.15 | ×1.00 |
+| 精品 jing | blue `#3873b8` | ×1.20 | +4 | ×1.30 | ×0.95 |
+| 珍品 zhen | purple `#8a4bb0` | ×1.35 | +7 | ×1.50 | ×0.90 |
+| 神品 shen | orange `#d2691e` | ×1.50 | +10 | ×1.75 | ×0.85 |
+
+**Quality buys numbers; family buys verbs.** AP, per-strike Breath cost, reach, hands,
+armor-pierce, armor-effectiveness, and special attacks are quality-immune — a 神品
+dagger is still a dagger (100% pierce, zero armor damage), just sharper and surer, so
+pillar 4 survives the loot ladder. Weapons scale both damage ends (rounded) and add
+flat accuracy; the 坠气 multiplier lightens **all** equipment at high grades — graded
+gear is finer-made, so armor scales protection **up** and 坠气 **down**, and a 神品
+maul hangs lighter on the back than the smithy's plain one (light weapons mostly round
+back to base — rounding favors the heavy end). The high-grade piece guards like iron
+and taxes Breath like leather, exactly the trade BB's famed armor sells. Labels prefix the grade above 凡品: 精品·腰刀.
+
+Wiring: one `QUALITY` registry per implementation; roster templates and scenario JSON
+units take optional `wpn_q` / `wpn2_q` / `armor_q` / `helmet_q` (default 凡品), scenario
+overriding template — the battle-test knob. Quality applies at unit creation to the
+deep-copied item; base tables never mutate, and breath_max reads the quality-adjusted
+坠气. This retires the ad-hoc `*_fine`/`*_crude` weapon variants (刘三刀's fine
+saber is now plain 腰刀 at 精品; the crude bow becomes the 凡品 猎弓 baseline). 神品 is
+the top rung of §5.3's loot-repair-resell ladder and where "every blade has a name"
+turns literal — named blades are 神品.
 
 ---
 
@@ -464,9 +571,11 @@ and data at once** (confirmed BB-style):
 
 - **Mechanical slots**: head (helmet = the head-armor pool, §3.2) · body (armor = the
   body-armor pool) · main hand (weapon = the verb set, §3.10) · off hand (shield /
-  empty for double-grip +25% damage) · ammo (quiver) · accessory (sash, banner,
-  trinket). Every slot's item is a JSON entity carrying stats, weight (Breath tax),
-  durability, and a sprite-layer reference (§7).
+  empty for double-grip +25% damage) · ammo (quiver — *M0 deferral: neither
+  implementation tracks ammo; bows and crossbows shoot unlimited until the quiver
+  slot lands*) · accessory (sash, banner,
+  trinket). Every slot's item is a JSON entity carrying stats, 坠气 (the carry tax,
+  §3.1), durability, and a sprite-layer reference (§7).
 - **Visual layers**: the bust composites in fixed order — base face/hair (generated
   from background, gender, age) → body-armor layer → helmet layer → held weapon +
   shield layers — each keyed to the **same item ID** as the mechanical slot. What you
@@ -686,22 +795,34 @@ Full comparison in `RESEARCH.md` (tech-stack section). Decisions:
 - **Engine-agnostic simulation core**: all rules/state/AI as plain objects, no
   rendering deps. Godot scenes replay sim events. Headless tests, deterministic
   replays, simple saves, free instant-resolve (F8).
-- **Pathfinding lives inside the sim core** (a ~50-line A* over the sim's own hex
-  graph, not engine AStar2D) — otherwise deterministic replay breaks.
+- **Pathfinding lives inside the sim core** (a ~50-line Dijkstra over the sim's own
+  hex graph, not engine AStar2D) — otherwise deterministic replay breaks.
 - **Everything is data**: items/techniques/enemies/contracts/events as JSON, stable
   string IDs (`weapon.qiang_militia`, `tech.iron_shirt`), registries, hot reload.
   **All strings in external tables with stable keys from M1** (bilingual becomes a
   translation task, not a rewrite; gender-aware keys from day one).
 - **Single source of truth for tooltips**: UI text generated from the same registries
   and formulas the sim executes (F1's credibility depends on it).
-- **Seeded named RNG streams** (combat / AI / loot / worldgen / cosmetic); command-
+- **Seeded named RNG streams** (combat / AI / loot / worldgen); command-
   pattern turn resolution; integer math. Replay = seed + command log (this is what
   makes F2's suspend save nearly free once mature).
 - **Utility AI** — scoped honestly (review: "the AI fights for hills" costs months).
-  v0 (M0–M1): greedy argmax over expected damage + three hand rules (don't break
-  engagement under ZoC; prefer higher adjacent tile; retreat at fleeing morale).
-  Influence maps, JSON personalities, temperature: M3+. AI is a permanent ~20% tax on
-  every milestone, not a line item.
+  v0 (M0–M1, as implemented in `sim/ai.py` = `game.js aiTurn`): greedy over **hit
+  chance** (not expected damage), ties to the lower-HP target. Family special rules,
+  checked in order before the basic strike: 斩首 on the first target under 40% HP ·
+  横扫 with ≥2 adjacent foes and **0** adjacent friends · 瞄准 when the best shot is
+  under 55% · 碎甲 on the first target with body armor ≥50 · 兜头 on the first with
+  head armor ≤15, and only from ≥50% base hit chance — the gamble's whiff costs 15
+  extra Breath, so the AI doesn't bet from a weak hand. Hand rules: a pinned archer
+  (enemy adjacent) swaps to the sidearm;
+  archers kite to ≥3 hexes and advance when out of bow range (range + elevation);
+  spear-bearers set the wall when the nearest enemy closes to 2–3 hexes; out-of-attacks
+  shield-bearers raise against adjacent foes; `"garrison": N` units hold within N hexes
+  of their post; move scoring prefers high ground. 8-action safety cap per turn; fully
+  deterministic — the reserved "ai" RNG stream is not consumed yet, so AI changes never
+  perturb combat rolls. (The v0.2 "don't break engagement under ZoC" rule was never
+  implemented — future, with influence maps, JSON personalities, temperature: M3+.)
+  AI is a permanent ~20% tax on every milestone, not a line item.
 - **Overworld gen**: Voronoi + layered noise (Amit Patel's method; FastNoiseLite
   built-in). Generate once at campaign start, serialize as plain state.
 - **Saves**: to_dict/from_dict per system, version int from day one, flat tables keyed
@@ -721,8 +842,9 @@ resource axes (枪 spear: accuracy+spearwall · 刀 saber: bleed · 锤 mace: ar
 pytest green; AI-vs-AI batches show no dominant strategy across the 4 weapons;
 damage/hit distributions match BB reference values. Batch simulation is this
 developer's unfair advantage — keep the tooling forever, but hard-stop the milestone.
-*(Scope deferrals, recorded v0.21: vision/fog, ranged scatter, and the ordered
-Withdraw command were consciously pushed to M1 — neither implementation has them.)*
+*(Scope deferrals, recorded v0.21/v0.24: vision/fog, ranged scatter, the line-of-fire
+×0.25 blocker rule, and the ordered Withdraw command were consciously pushed to M1 —
+neither implementation has them.)*
 
 **M1 — Godot vertical slice (3–5 months).** Port core to typed GDScript. One battle:
 8v8, the 4 families, shields, one hill, routs working. UI: **hit-chance tooltip with
@@ -825,6 +947,84 @@ timelines are how side projects die — hitting month 6 still in M1 is *on pace*
 ---
 
 ## 10. Changelog
+
+**v0.24 (2026-06-12)** — **combat-specials rework + the round-swing line** (both
+implementations; ruleset changes, batch-verified). (1) **碎甲 demolish reworked**: was
+pure armor damage with zero HP; now armor damage = min(armor present, dmg ×3), then
+**blunt trauma through the remaining armor** — HP = max(0, dmg × pierce − 0.1 ×
+(armor_before − armor_dmg)) — no head multiplier, no overflow channel (§3.10). The
+maul now hurts the man inside the can it's opening. (2) **兜头 headhunt is now the
+gamble swing**: the forced head hit lands at **×2.0** (was the generic ×1.5) but at
+**−15 accuracy**, and a whiff **overswings for 15 extra Breath** — a full turn's
+recovery thrown away, initiative sinking with it. High feedback, high risk, all
+self-contained. Data-driven `head_mult`/`acc`/`miss_br` on the special dict; the
+damage formula stays generic. (3) **横扫 now
+has three carriers**: 大斧 (unchanged) plus two new weapons — **戟** (2H polearm,
+reach 2, acc 12, 22–32, pierce 0.35, 坠气 5: reach *and* the round swing) and
+**大关刀** (2H heavy blade, acc 8, 28–42, armor_eff 1.2, chop ×2.25 + bleed + 横扫,
+坠气 6). Sweep still strikes the adjacent ring only. (4) **Two roster units** carry
+them, fielded in 攻寨 only: 周大刀 (player, 大关刀, hp 60 / skill 58 / breath 90,
+attacker spawn) and 钻山豹 (enemy, 戟, hp 54 / skill 55 / breath 88, garrisoned
+defender) → 攻寨 is 6v8. (5) **AI v0 learns the new verbs**: 碎甲 fires on the first
+target with body armor ≥50; 兜头 on the first with head armor ≤15, gated on ≥50%
+base chance (§7). (6) **Morale
+log now carries the full breakdown** — both engines emit base 胆识 / +3×adjacent
+allies / situational mod on every morale event; §3.5's "log shows every modifier" is
+now implemented, not aspirational. (7) **JS-parity fixes in the sim**: simultaneous
+both-sides-zero elimination resolves to PLAYER (checkEnd tests the enemy side first);
+load_scenario rejects duplicate unit ids (matching boot()). (8) **Balance after the
+rework** (300 seeds each, AI vs AI): 劫镖 60% · 守桥 56% · 对决 47% · **攻寨 51%
+player (was 40.7%)** — the 兜头 whiff tax prices the whip back to fair, landing the
+siege at even and 对决 back on its pre-rework step. (9) Doc-honesty pass:
+§3.1/§3.3–§3.10/§4.5/§7 aligned to code —
+M0 modifier list enumerated (long thrust, falloff, special acc, flail shield-ignore,
+举盾), surround documented attacker-side, up-front move cost, rout/rally numerics,
+bleed numerics, drain-replaces-baseline, impassable-river vs future paddy, ammo and
+line-of-fire deferrals, MAX_ROUNDS=100 harness draw cap, AI v0 spec rewritten to
+match ai.py. 92 tests green.
+
+**v0.23 (2026-06-12)** — **坠气, the carry tax** (canonical spec; equipment "weight"
+abolished). (1) **Rename and generalize**: the armor `weight` field and the §3.11
+quality multiplier column are now `br_tax`, displayed **坠气** — everything an escort
+straps on drags on his wind — deliberately distinct from the per-strike 气力 cost
+(`br`), which is untouched. Armor taxes keep the old weight values (布甲 3 … 铁甲 16).
+(2) **Weapons now tax too** — every family declares 坠气 by heft (匕首 1 · 腰刀 2 ·
+弩/长枪 4 · 大斧 5 · 大锤 6), and **max Breath = breath_base − 坠气 of body + helmet +
+weapon + sidearm** (§3.1): BB's carry-fatigue made diegetic. The bagged sidearm is
+paid all battle, sheathed or drawn; 换械 recomputes nothing. (3) **Quality lightens
+weapons as well as armor**: the 坠气 multiplier (×1.00–0.85) now applies to weapon
+taxes through the existing two-step rounding (q_round/qRound) — 刘三刀's 精品·腰刀
+hangs at q_round(2×0.95) = 2. Per-strike br, AP, damage handling, pierce, armor-eff,
+specials: unchanged. (4) **Cross-engine parity fixes** from review: quality override
+resolution is nullish in both engines — a grade key *present* with `""` (or any
+invalid id) fails loud, only an absent key (or JSON null) falls back
+scenario → template → 凡品 (Python's truthy `or` chain replaced with explicit None
+checks; JS `??` was already right); and all four grade slots (`wpn_q`/`wpn2_q`/
+`armor_q`/`helmet_q`) validate eagerly in both engines — an invalid `wpn2_q` throws
+even on a unit carrying no second weapon (game.js hoisted the resolution out of
+`if (u.wpn2)`; Python was already eager). (5) **Ladder re-pinned** under the new tax,
+batch-retuned and verified at 2000 seeds each: 劫镖 ★ 63.9% · 守桥 ★★ 54.9% ·
+对决 ★★★ 47.7% · 攻寨 ★★★★ 40.7% — two quality-knob turns restore the v0.21 steps
+(对决's 坐山雕 showcase trimmed to 良品 armor only, the living scenario-override
+example; 劫镖's 夜猫子 gains a 良品·猎弓 mirroring 燕小乙's).
+
+**v0.22 (2026-06-12)** — **equipment quality grades 品阶** (canonical spec; new §3.11).
+(1) **Five grades, orthogonal to item identity** — 凡品 white · 良品 green · 精品 blue ·
+珍品 purple · 神品 orange: damage ×1.00–1.50 + accuracy +0–10 on weapons, protection
+×1.00–1.75 with weight ×1.00–0.85 on armor/helmets (high grades protect like iron, tax
+Breath like leather — the BB famed-armor trade). Principle pinned: **quality buys
+numbers, family buys verbs** — AP, Breath cost, reach, hands, pierce, armor-eff, and
+specials are quality-immune. (2) **Wiring**: one QUALITY registry per implementation;
+optional `wpn_q`/`wpn2_q`/`armor_q`/`helmet_q` (default 凡品) on roster templates *and*
+scenario JSON units, scenario overriding template (the battle-test knob); quality
+applies at unit creation to a deep copy, base tables never mutate; unknown grade ids
+fail loud. (3) **Content**: the ad-hoc yaodao_fine/liegong_crude variants retired —
+刘三刀 carries 腰刀 at 精品 (22–31, acc 14, 精品·腰刀), 猎弓 rebased to 14–24 凡品
+(夜猫子 unchanged in numbers) with 燕小乙 at 良品 (15–26, acc 12, 良品·猎弓); 对决's
+坐山雕 gets the showcase 良品 loadout (九环刀 26–37 acc 12, 铁甲 护 127, 铁盔 护 92,
+weights unchanged so breath stays 68). §3.2 amended: tier table = 凡品 base values;
+named armors (山文甲) and named blades are the 神品 layer (F4 famed gear, §5.3
+loot-resell top rung). 82 tests green.
 
 **v0.21 (2026-06-11)** — **stepwise difficulty ladder + full-folder problem scan**
 (user direction). (1) **The ladder is now real steps**, batch-retuned and verified at

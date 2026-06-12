@@ -26,13 +26,14 @@ def special_opts(sp):
     if t == "decap":
         return dict(mult=sp["dmg_mult"], fear_mod=-10, tag=sp["label"])
     if t == "demolish":
-        return dict(armor_only=True, armor_mult=sp["armor_mult"], tag=sp["label"])
+        return dict(demolish=True, armor_mult=sp["armor_mult"], tag=sp["label"])
     if t == "aimed":
         return dict(acc_mod=sp["acc_bonus"], falloff=sp["falloff"], tag=sp["label"])
     if t == "sweep":
         return dict(acc_mod=sp["acc"], tag=sp["label"])
     if t == "headhunt":
-        return dict(force_head=True, tag=sp["label"])
+        return dict(force_head=True, head_mult=sp.get("head_mult"),
+                    acc_mod=sp.get("acc"), miss_br=sp.get("miss_br"), tag=sp["label"])
     return {}
 
 
@@ -90,15 +91,17 @@ def hit_breakdown(state, atk, dfn, opts=None):
 def compute_damage(dmg, armor_before, wpn, head, opts=None):
     """Pure damage split — (armor_dmg, hp_dmg). No RNG; unit-testable traces."""
     opts = opts or {}
-    if opts.get("armor_only"):  # 碎甲: pure armor destruction
-        return min(armor_before, js_round(dmg * opts["armor_mult"])), 0
+    if opts.get("demolish"):  # 碎甲: armor ×mult, then blunt trauma through what's left
+        armor_dmg = min(armor_before, js_round(dmg * opts["armor_mult"]))
+        # no head multiplier and no overflow — the ×mult IS the verb
+        return armor_dmg, max(0, js_round(dmg * wpn["pierce"] - 0.1 * (armor_before - armor_dmg)))
     armor_dmg = min(armor_before, js_round(dmg * wpn["armor_eff"]))
     hp_dmg = max(0, js_round(dmg * wpn["pierce"] - 0.1 * armor_before))
     if armor_dmg >= armor_before:  # armor destroyed → overflow
         hp_dmg += max(0, js_round(dmg * (1 - wpn["pierce"])) - armor_before)
     mult = 1.0
     if head:
-        mult = 2.25 if wpn.get("chop") else 1.5
+        mult = opts.get("head_mult") or (2.25 if wpn.get("chop") else 1.5)
     return armor_dmg, js_round(hp_dmg * mult)
 
 
@@ -160,14 +163,16 @@ def morale_check(state, u, mod, reason):
     adj = sum(1 for x in adjacent_units(state, u.q, u.r) if x.side == u.side)
     target = u.resolve + adj * 3 + mod
     roll = state.rng.d100()
+    # DESIGN §3.5: the log shows every modifier — events carry the breakdown
     if roll <= target:
-        state.emit("morale_pass", unit=u.uid, target=target, roll=roll, reason=reason)
+        state.emit("morale_pass", unit=u.uid, target=target, roll=roll, reason=reason,
+                   base=u.resolve, adj=adj, mod=mod)
     else:
         u.morale = "Wavering" if u.morale == "Steady" else "Fleeing"
         if u.morale == "Fleeing":
             u.fled_rounds = 0
         state.emit("morale_fail", unit=u.uid, target=target, roll=roll,
-                   reason=reason, now=u.morale)
+                   reason=reason, now=u.morale, base=u.resolve, adj=adj, mod=mod)
 
 
 def check_end(state):
@@ -177,5 +182,6 @@ def check_end(state):
     e = len(state.alive_units("enemy"))
     if p == 0 or e == 0:
         state.over = True
-        state.winner = "enemy" if p == 0 else "player"
+        # JS parity: checkEnd tests e===0 first, so both-sides-zero → player
+        state.winner = "player" if e == 0 else "enemy"
         state.emit("battle_end", winner=state.winner)

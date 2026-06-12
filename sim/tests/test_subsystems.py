@@ -173,7 +173,7 @@ def test_demolish_full_apply_path():
     n_events = len(s.events)
     s.rng = FakeRNG([1, 100, 34])
     apply_hit(s, shi, diao, opts=special_opts(shi.wpn["special"]))
-    assert diao.armor_b == 8 and diao.hp == 70  # armor ×3, zero HP
+    assert diao.armor_b == 8 and diao.hp == 64  # armor ×3, trauma through the wreck
     assert diao.bleed == 0
     assert diao.breath == diao.breath_max - 20  # drain still applies
     assert not any(e["type"].startswith("morale_") for e in s.events[n_events:])
@@ -330,7 +330,7 @@ def test_aimed_shot_through_resolve():
     s.rng = FakeRNG(default=100)
     assert resolve(s, yan, Strike("duyan", special=True)) is True
     e = s.events[-1]
-    assert e["type"] == "miss" and e["chance"] == 64 and e["tag"] == "瞄准"
+    assert e["type"] == "miss" and e["chance"] == 66 and e["tag"] == "瞄准"  # 良品 bow +2
     assert yan.ap == 3 and yan.breath == yan.breath_max - 12
 
 

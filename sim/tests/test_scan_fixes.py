@@ -76,3 +76,40 @@ def test_weapon_dicts_are_private_per_unit():
     assert a.wpn["special"] is not b.wpn["special"]
     from sim.data import WEAPONS
     assert a.wpn["special"] is not WEAPONS["changqiang"]["special"]
+
+
+# ---- pins for the 2026-06-12 audit fixes (JS-parity + §3.5 log transparency) ----
+
+def test_load_scenario_rejects_duplicate_unit_ids(tmp_path, monkeypatch):
+    """game.js boot() rejects double-fielded templates; the sim must match."""
+    spec = {"map": {"cols": 3, "rows": 3},
+            "units": [{"id": "wang", "spawn": [0, 0]}, {"id": "wang", "spawn": [1, 0]}]}
+    (tmp_path / "twins.json").write_text(json.dumps(spec), encoding="utf-8")
+    monkeypatch.setattr(state, "SCENARIO_DIR", str(tmp_path))
+    with pytest.raises(ValueError, match=r"twins.*duplicate.*wang"):
+        load_scenario("twins")
+
+
+def test_simultaneous_elimination_favors_player():
+    """JS parity: checkEnd tests e===0 first, so both-sides-zero → player wins."""
+    from sim.rules import check_end
+    s = load_scenario("jiebiao")
+    for u in s.units:
+        u.alive = False
+    check_end(s)
+    assert s.over and s.winner == "player"
+
+
+def test_morale_events_carry_the_breakdown():
+    """DESIGN §3.5: the log shows every modifier — base, +3/adjacent ally, mod."""
+    from sim.rules import morale_check
+    from sim.tests.test_subsystems import FakeRNG, move_to, park_others
+    s = load_scenario("jiebiao")
+    duyan = move_to(s, "duyan", 5, 5)
+    move_to(s, "erma", 6, 5)               # one adjacent ally → +3
+    park_others(s, {"duyan", "erma"})
+    s.rng = FakeRNG(default=100)           # always fails
+    morale_check(s, duyan, -10, "test")
+    e = next(ev for ev in s.events if ev["type"] == "morale_fail")
+    assert (e["base"], e["adj"], e["mod"]) == (duyan.resolve, 1, -10)
+    assert e["target"] == duyan.resolve + 3 - 10

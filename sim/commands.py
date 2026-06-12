@@ -148,7 +148,10 @@ def resolve(state, u, cmd):
                 return False
             u.ap -= sp["ap"]
             u.breath -= sp["br"]
-            apply_hit(state, u, t, opts=opts)
+            landed = apply_hit(state, u, t, opts=opts)
+            # 兜头 gamble: the overswing — a whiff drains extra Breath
+            if not landed and opts.get("miss_br"):
+                u.breath = max(0, u.breath - opts["miss_br"])
             return True
         if not can_attack(u):
             return False

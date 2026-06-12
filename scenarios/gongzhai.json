@@ -98,6 +98,15 @@
       "spawn": [0, 3]
     },
     {
+      "id": "zhou",
+      "spawn": [2, 4]
+    },
+    {
+      "id": "zuanshan",
+      "spawn": [5, 3],
+      "garrison": 1
+    },
+    {
       "id": "shemao",
       "spawn": [6, 3],
       "garrison": 1
