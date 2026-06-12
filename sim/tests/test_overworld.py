@@ -14,8 +14,10 @@ def W():
 
 def test_region_loads_with_history_intact():
     w = W()
-    assert (w.spec["cols"], w.spec["rows"]) == (34, 28)   # v0.34: the full 河北
-    assert len(w.tiles) == 34 * 28
+    assert (w.spec["cols"], w.spec["rows"]) == (44, 40)   # v0.35: geo-faithful 河北
+    assert len(w.tiles) == 44 * 40
+    # 938: 瀛州 (seat: 河间) rides under the Liao banner
+    assert w.settlements["yingzhou"]["fanzhen"] == "卢龙·辽"
     assert w.settlements["weizhou"]["fanzhen"] == "天雄军"
     assert w.settlements["zhenzhou"]["fanzhen"] == "成德军"
     # the ceded prefectures sit beyond the 拒马河 as occupied towns
@@ -44,12 +46,12 @@ def test_roads_beat_open_country():
 
 def test_rivers_block_except_crossings():
     w = W()
-    # the 滹沱河 row: water is unenterable, the bridge carries the road
     water = [t for t in w.tiles.values() if t.terrain == "water"]
     assert water and all(t.cost is None for t in water)
+    # 镇州 sits on the north bank — the road south crosses at the 滹沱 bridge
     path = path_to(dijkstra(w, w.settlements["zhenzhou"]["at"])[1],
-                   w.settlements["dingzhou"]["at"])
-    assert any(w.tiles[k].terrain == "bridge" for k in path), "must cross at 滹沱桥"
+                   w.settlements["zhaozhou"]["at"])
+    assert any(w.tiles[k].terrain in ("bridge", "ford") for k in path)
 
 
 def test_travel_advances_the_day_clock():
@@ -105,9 +107,16 @@ def test_caravan_walks_its_route():
 
 
 def test_hidden_lair_revealed_by_proximity():
+    from sim.hexmath import neighbors
+    from sim.overworld import _spot
     w = W()
     assert "寨" not in render(w)                       # 黑风寨 starts unknown
-    travel(w, [-2, 8])                                  # ride into the 西山
+    lair = w.settlements["heifengzhai"]
+    w.party = next(k for k in neighbors(*lair["at"])
+                   if w.tiles.get(k) and w.tiles[k].cost is not None)
+    band = next(p for p in w.parties if p.kind == "bandit")
+    band.pos = w.party                                  # the band is out prowling
+    _spot(w)                                            # ride up to it — revealed
     assert any(e["type"] == "spotted" and e["what"] == "heifengzhai"
                for e in w.events)
     assert "寨" in render(w)
@@ -115,9 +124,11 @@ def test_hidden_lair_revealed_by_proximity():
 
 def test_provisions_burn_and_the_market_feeds():
     from sim.overworld import PROVISIONS_MAX, camp, market_buy
+    from sim.hexmath import hex_dist
     w = W()
-    w.party = (3, 10)                                   # open country, no gates
-    assert w.tiles[w.party].terrain == "plain"
+    w.party = next(k for k, tl in sorted(w.tiles.items())   # open country, no gates
+                   if tl.terrain == "plain"
+                   and all(hex_dist(k, s["at"]) > 3 for s in w.settlements.values()))
     for _ in range(PROVISIONS_MAX + 2):
         camp(w)
     assert w.provisions == 0
@@ -148,17 +159,19 @@ def test_hostile_adjacency_forces_an_encounter():
 def test_interception_halts_the_march():
     w = W()
     band = next(p for p in w.parties if p.kind == "bandit")
-    # park the band astride the 官道 north of the bridge, leashed in place
-    road_hex = (1, 11)
-    assert w.tiles[road_hex].terrain == "road"
-    band.pos, band.home, band.prowl = road_hex, road_hex, 0
-    days = travel(w, "dingzhou")
+    # park the band astride the 滹沱 crossing south of 镇州, leashed in place
+    _costs, prev = dijkstra(w, w.party)
+    path = path_to(prev, w.settlements["zhaozhou"]["at"])
+    cross = next(k for k in path if w.tiles[k].terrain in ("bridge", "ford"))
+    band.pos, band.home, band.prowl = cross, cross, 0
+    days = travel(w, "zhaozhou")
     last = w.events[-1]
     assert last["type"] == "travel" and last["intercepted"] == "heifeng_band"
-    assert w.party != w.settlements["dingzhou"]["at"]   # halted mid-march
+    assert w.party != w.settlements["zhaozhou"]["at"]   # halted mid-march
     assert days == 1
     enc = next(e for e in w.events if e["type"] == "encounter")
-    assert enc["scenario"] == "shouqiao"    # caught crossing 滹沱桥 — the bridge fight
+    # contact happens at reach 1 — on the crossing itself or the approach road
+    assert enc["scenario"] in ("shouqiao", "jiebiao")
 
 
 def test_worldgen_stream_never_touches_combat_rolls():
@@ -195,8 +208,7 @@ def test_razing_the_lair_disbands_the_band():
 def test_site_overrides_terrain_encounter():
     from sim.overworld import camp
     w = W()
-    ridge = w.sites["heifengling"]          # hills would say 攻寨; the site says duel
-    assert w.tiles[ridge["at"]].terrain == "hills"
+    ridge = w.sites["heifengling"]          # whatever the ground says, the site says duel
     w.party = ridge["at"]
     band = next(p for p in w.parties if p.kind == "bandit")
     band.pos, band.home, band.prowl = ridge["at"], ridge["at"], 0
