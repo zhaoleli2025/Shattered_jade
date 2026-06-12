@@ -1,4 +1,4 @@
-# Shattered Jade (碎玉) — Design Document v0.38
+# Shattered Jade (碎玉) — Design Document v0.39
 
 > **Title: Shattered Jade (碎玉)** — final, 2026-06-11. 宁为玉碎，不为瓦全 ("better
 > shattered jade than intact tile"): the permadeath creed in two characters — your
@@ -964,6 +964,22 @@ timelines are how side projects die — hitting month 6 still in M1 is *on pace*
 ---
 
 ## 10. Changelog
+
+**v0.39 (2026-06-12)** — **steel remembers: BB durability, stages A+B** (user
+sign-off: 卷刃 at zero, full in-battle wear + campaign persistence; stage C —
+injuries + the 33% death save — is next). (1) **In-battle wear** (both engines,
+RESEARCH.md rules): every weapon carries 耐久 (40–72 by family); a melee hit
+on a part still holding **≥50 armor grinds the edge −3**, flesh costs nothing;
+**bows/crossbows pay −2 per shot, hit or miss**; sweep pays per connecting
+hit. At zero the blade **卷刃** — damage halved until mended (no destruction;
+no fists system needed). Balance ladder re-verified: all five battles within
+±2 points. (2) **Campaign persistence**: after every campaign battle the
+dents ride home — `battle_wear()` carries weapon durability absolutely and
+accumulates armor/helmet damage in the hero's gear; the NEXT battle starts
+with the dulled edge and the dented cuirass. **修缮** at any city or town
+smithy makes it whole: 1两 per 3 points (terminal `mend 人`, web drawer 修缮
+rows with live bills). 史料 block added separately (资治通鉴/旧五代史/新五代史
+as the historical canon). 130 tests green.
 
 **v0.38 (2026-06-12)** — **the map deepens** (user-picked batch: 水网+白洋淀 ·
 活地图 · 衙门 · more 寨子; seasons shelved). (1) **水网**: the 沙河 north of

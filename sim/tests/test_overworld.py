@@ -433,3 +433,40 @@ def test_marsh_slows_but_carries():
     lair = w.settlements["dian_lair"]               # the 水寨 hides in the 淀
     costs, _ = dijkstra(w, w.party)
     assert tuple(lair["at"]) in costs
+
+
+def test_wear_rides_home_and_the_smith_mends_it():
+    from sim.overworld import battle_wear, repair_bill, smith_repair
+    from sim.state import load_scenario
+    w = W()
+    s = load_scenario("jiebiao", 0, gear=w.gear)
+    wang = s.by_id("wang")
+    wang.wpn["dura_now"] -= 9                   # three armored strikes
+    wang.armor_b -= 30                          # a dented cuirass
+    battle_wear(w, s)
+    g = w.gear["wang"]
+    assert g["wpn_dura"] == wang.wpn["dura"] - 9 and g["armor_dmg"] == 30
+    # the dents ride into the NEXT battle
+    s2 = load_scenario("jiebiao", 1, gear=w.gear)
+    wang2 = s2.by_id("wang")
+    assert wang2.wpn["dura_now"] == wang2.wpn["dura"] - 9
+    assert wang2.armor_b == wang2.armor_b0 and wang2.armor_b < 78  # dented start
+    # the smith makes it whole — for silver
+    bill = repair_bill(w, "wang")
+    assert bill == -(-39 // 3)
+    w.gold = 100
+    assert smith_repair(w, "wang") == bill
+    assert repair_bill(w, "wang") == 0
+    s3 = load_scenario("jiebiao", 2, gear=w.gear)
+    assert s3.by_id("wang").wpn["dura_now"] == s3.by_id("wang").wpn["dura"]
+
+
+def test_repairs_in_towns_but_not_villages():
+    from sim.overworld import smith_repair
+    w = W()
+    w.gear["wang"]["armor_dmg"] = 30
+    w.gold = 100
+    w.party = w.settlements["wangdu"]["at"]     # a village has no forge
+    assert smith_repair(w, "wang") == 0
+    w.party = w.settlements["dingzhou"]["at"]   # a town does
+    assert smith_repair(w, "wang") > 0

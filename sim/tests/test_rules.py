@@ -137,3 +137,45 @@ def test_double_grip_eligibility():
     assert double_grip(s.by_id("liu")) is False     # 1H + shield
     assert double_grip(s.by_id("duyan")) is True    # 1H, no shield
     assert double_grip(s.by_id("yan")) is False     # ranged
+
+
+def test_durability_steel_dulls_on_steel():
+    """BB wear: −3 hitting armor ≥50, nothing on flesh; 卷刃 at 0 bites half."""
+    from sim.tests.test_subsystems import FakeRNG, move_to, ready
+    s = S()
+    liu = ready(move_to(s, "liu", 0, 0))
+    diao = move_to(s, "diao", 1, 0)         # tiejia 110 — a grindstone
+    d0 = liu.wpn["dura_now"]
+    s.rng = FakeRNG([1, 100, 20])
+    from sim.rules import apply_hit
+    apply_hit(s, liu, diao)
+    assert liu.wpn["dura_now"] == d0 - 3
+    bare = move_to(s, "lla", 0, 1)          # 布甲 25 < 50 — flesh is free
+    bare.armor_b = 25
+    s.rng = FakeRNG([1, 100, 20])
+    apply_hit(s, liu, bare)
+    assert liu.wpn["dura_now"] == d0 - 3    # unchanged
+    # 卷刃: at 0 the same roll lands half the damage
+    fresh = move_to(s, "erma", 1, 1)
+    fresh.armor_b, fresh.hp = 0, 50
+    s.rng = FakeRNG([1, 100, 20])
+    apply_hit(s, liu, fresh)
+    full_hp_loss = 50 - fresh.hp
+    liu.wpn["dura_now"] = 0
+    fresh.hp, fresh.armor_b = 50, 0
+    s.rng = FakeRNG([1, 100, 20])
+    apply_hit(s, liu, fresh)
+    assert (50 - fresh.hp) < full_hp_loss   # the folded edge bites less
+
+
+def test_bows_wear_per_shot_hit_or_miss():
+    from sim.commands import Strike, resolve
+    from sim.tests.test_subsystems import FakeRNG, move_to, park_others, ready
+    s = S()
+    yan = ready(move_to(s, "yan", 0, 0))
+    park_others(s, {"yan", "duyan"})
+    move_to(s, "duyan", 3, 0)
+    d0 = yan.wpn["dura_now"]
+    s.rng = FakeRNG(default=100)            # a clean miss
+    resolve(s, yan, Strike("duyan"))
+    assert yan.wpn["dura_now"] == d0 - 2    # the shot is paid regardless

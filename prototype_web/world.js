@@ -63,14 +63,14 @@ const SLOT_LABEL = { wpn_q: "兵", wpn2_q: "副", armor_q: "甲", helmet_q: "盔
    wpn2 marks who carries a sidearm (so the smith offers the wpn2_q slot);
    smith marks the named heroes the 铁匠铺 serves — militia stay off the anvil. */
 const HEROES = [
-  { id: "wang", name: "王铁枪", wpn2: true, smith: true },
-  { id: "liu",  name: "刘三刀", wpn_q: "jing", smith: true },
-  { id: "shi",  name: "石敢当", smith: true },
-  { id: "yan",  name: "燕小乙", wpn_q: "liang", wpn2: true, smith: true },
-  { id: "chen", name: "陈短矛", smith: true },
-  { id: "he",   name: "何九鞭", smith: true },
-  { id: "lu",   name: "鲁大弩", wpn2: true, smith: true },
-  { id: "zhou", name: "周大刀", smith: true },
+  { id: "wang", name: "王铁枪", wpn2: true, smith: true, wpnLabel: "长枪", wpn2Label: "腰刀", wpnDura: 64, wpn2Dura: 56 },
+  { id: "liu",  name: "刘三刀", wpn_q: "jing", smith: true, wpnLabel: "腰刀", wpnDura: 56 },
+  { id: "shi",  name: "石敢当", smith: true, wpnLabel: "大锤", wpnDura: 72 },
+  { id: "yan",  name: "燕小乙", wpn_q: "liang", wpn2: true, smith: true, wpnLabel: "猎弓", wpn2Label: "匕首", wpnDura: 48, wpn2Dura: 40 },
+  { id: "chen", name: "陈短矛", smith: true, wpnLabel: "短矛", wpnDura: 56 },
+  { id: "he",   name: "何九鞭", smith: true, wpnLabel: "九节鞭", wpnDura: 56 },
+  { id: "lu",   name: "鲁大弩", wpn2: true, smith: true, wpnLabel: "弩", wpn2Label: "短刀", wpnDura: 48, wpn2Dura: 48 },
+  { id: "zhou", name: "周大刀", smith: true, wpnLabel: "大关刀", wpnDura: 64 },
   { id: "xya", name: "乡勇·甲" }, { id: "xyb", name: "乡勇·乙" },
   { id: "xyc", name: "乡勇·丙" }, { id: "xyd", name: "乡勇·丁" },
 ];
@@ -172,6 +172,12 @@ function restoreState() {
     for (const slot of GEAR_SLOTS) {
       if (QUALITY_LADDER.indexOf(sv[slot]) > 0) seeded[uid][slot] = sv[slot];
     }
+    for (const k of ["armor_dmg", "helm_dmg"]) {
+      if (Number.isInteger(sv[k]) && sv[k] > 0) seeded[uid][k] = sv[k];
+    }
+    for (const k of ["wpn_dura", "wpn2_dura"]) {
+      if (Number.isInteger(sv[k]) && sv[k] >= 0) seeded[uid][k] = sv[k];
+    }
   }
   world.gear = seeded;
   return true;
@@ -200,6 +206,17 @@ function applyBattleResult(resOverride) {
   if (!res) { try { res = JSON.parse(localStorage.getItem("sj_battle_result") || "null"); } catch (e) {} }
   if (!res || res.scenario !== pend.scenario) return;   // battle never fought
   try { localStorage.removeItem("sj_battle_result"); } catch (e) {}
+  for (const wu of res.wear || []) {                    // the dents ride home
+    const g = world.gear[wu.id];
+    if (!g) continue;
+    g.armor_dmg = (g.armor_dmg || 0) + (wu.armorLost || 0);
+    g.helm_dmg = (g.helm_dmg || 0) + (wu.helmLost || 0);
+    const h = HEROES.find((x) => x.id === wu.id);
+    for (const wd of wu.wpns || []) {
+      if (h && wd.base === h.wpnLabel) g.wpn_dura = wd.dura;
+      else if (h && wd.base === h.wpn2Label) g.wpn2_dura = wd.dura;
+    }
+  }
   const win = res.winner === "player";
   if (pend.kind === "assault") {
     const lair = settlements.get(pend.target);
@@ -986,6 +1003,21 @@ function renderCity() {
   });
   if (world.contract) html += `<div class="leaf" style="color:#c9bda0">在身：${world.contract.name}</div>`;
   html += `</details>`;
+  if (s.kind === "city" || s.kind === "town") {
+    let rows = "";
+    for (const h of HEROES) {
+      if (!h.smith) continue;
+      const g = world.gear[h.id] || {};
+      let pts = (g.armor_dmg || 0) + (g.helm_dmg || 0);
+      if (g.wpn_dura != null) pts += (h.wpnDura || 0) - g.wpn_dura;
+      if (g.wpn2_dura != null) pts += (h.wpn2Dura || 0) - g.wpn2_dura;
+      if (pts <= 0) continue;
+      const bill = Math.ceil(pts / 3);
+      rows += `<div class="job"><span>${h.name} 甲械损${pts}点</span>` +
+              `<button onclick="uiMend('${h.id}')" ${world.gold < bill ? "disabled" : ""}>修缮 ${bill}两</button></div>`;
+    }
+    if (rows) html += `<details data-k="mend" open><summary>修缮</summary>${rows}</details>`;
+  }
   if (s.kind === "city" && world.infamy > 0) {
     const cost = world.infamy * ATONE_RATE;
     html += `<details data-k="yamen" open><summary>衙门</summary>` +
@@ -1032,6 +1064,21 @@ window.uiAtone = () => {
 };
 window.uiTake = (i) => { const jb = cityJobs()[i]; if (jb) takeJob(jb); refresh(); };
 window.uiSmith = (uid, slot) => { smithUpgrade(uid, slot); refresh(); };
+window.uiMend = (uid) => {
+  const h = HEROES.find((x) => x.id === uid);
+  const g = world.gear[uid] || {};
+  let pts = (g.armor_dmg || 0) + (g.helm_dmg || 0);
+  if (g.wpn_dura != null) pts += (h.wpnDura || 0) - g.wpn_dura;
+  if (g.wpn2_dura != null) pts += (h.wpn2Dura || 0) - g.wpn2_dura;
+  const bill = Math.ceil(Math.max(0, pts) / 3);
+  if (bill > 0 && world.gold >= bill) {
+    world.gold -= bill;
+    g.armor_dmg = 0; g.helm_dmg = 0;
+    delete g.wpn_dura; delete g.wpn2_dura;
+    log(`第${world.day}日 · 铁铺修缮${h.name}甲械，费银${bill}两`, "sys");
+  }
+  refresh();
+};
 window.uiTown = () => { drawerOpen = !drawerOpen; refresh(); };
 window.uiZoom = (f) => {
   const v0 = viewSize();

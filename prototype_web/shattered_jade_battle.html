@@ -241,6 +241,8 @@ function mkUnit(t, q, r, su = {}) {
     morale: "Steady", fledRounds: 0, bleed: 0, alive: true,
     ap: 0, attacksLeftHint: 0,
   });
+  u.wpn.duraNow = u.wpn.dura;            // the edge is fresh — for now
+  if (u.wpn2) u.wpn2.duraNow = u.wpn2.dura;
   // 品阶: scenario unit entry overrides the template, default 凡品.
   // All four slots resolve AND validate eagerly — an invalid wpn2_q fails loud
   // even when the unit carries no second weapon (parity with sim/state.py).
@@ -272,124 +274,124 @@ function rosterTemplates() {
   return [
     P("wang", "王铁枪", "枪", { hpMax: 55, skill: 62, def: 10, shield: 0, resolve: 48,
       initBase: 96, breathBase: 87, armor: "pijia", helmet: "pikui",
-      wpn: { kind: "melee", label: "长枪", hands: 2, reach: 2, acc: 20, dmin: 22, dmax: 32, armorEff: 0.9, pierce: 0.3, ap: 6, br: 15, br_tax: 4, special: { type: "spearwall", label: "枪林", ap: 3, br: 18 } },
-      wpn2: { kind: "melee", label: "腰刀", hands: 1, acc: 10, dmin: 18, dmax: 26, armorEff: 1.0, pierce: 0.3, ap: 4, br: 12, br_tax: 2, bleed: true, special: { type: "decap", label: "斩首", ap: 5, br: 15, dmgMult: 1.3 } } }),
+      wpn: { kind: "melee", label: "长枪", dura: 64, hands: 2, reach: 2, acc: 20, dmin: 22, dmax: 32, armorEff: 0.9, pierce: 0.3, ap: 6, br: 15, br_tax: 4, special: { type: "spearwall", label: "枪林", ap: 3, br: 18 } },
+      wpn2: { kind: "melee", label: "腰刀", dura: 56, hands: 1, acc: 10, dmin: 18, dmax: 26, armorEff: 1.0, pierce: 0.3, ap: 4, br: 12, br_tax: 2, bleed: true, special: { type: "decap", label: "斩首", ap: 5, br: 15, dmgMult: 1.3 } } }),
     P("liu", "刘三刀", "刀", { hpMax: 60, skill: 60, def: 6, shield: 15, resolve: 45,
       initBase: 104, breathBase: 87, armor: "pijia", helmet: "pikui", wpn_q: "jing",
-      wpn: { kind: "melee", label: "腰刀", hands: 1, acc: 10, dmin: 18, dmax: 26, armorEff: 1.0, pierce: 0.3, ap: 4, br: 12, br_tax: 2, bleed: true, special: { type: "decap", label: "斩首", ap: 5, br: 15, dmgMult: 1.3 } } }),
+      wpn: { kind: "melee", label: "腰刀", dura: 56, hands: 1, acc: 10, dmin: 18, dmax: 26, armorEff: 1.0, pierce: 0.3, ap: 4, br: 12, br_tax: 2, bleed: true, special: { type: "decap", label: "斩首", ap: 5, br: 15, dmgMult: 1.3 } } }),
     P("shi", "石敢当", "锤", { hpMax: 65, skill: 58, def: 5, shield: 0, resolve: 50,
       initBase: 90, breathBase: 93, armor: "tiejia", helmet: "tiekui",
-      wpn: { kind: "melee", label: "大锤", hands: 2, acc: 5, dmin: 28, dmax: 40, armorEff: 2.0, pierce: 0.2, ap: 6, br: 18, br_tax: 6, breathDrain: 20, special: { type: "demolish", label: "碎甲", ap: 6, br: 20, armorMult: 3.0 } } }),
+      wpn: { kind: "melee", label: "大锤", dura: 72, hands: 2, acc: 5, dmin: 28, dmax: 40, armorEff: 2.0, pierce: 0.2, ap: 6, br: 18, br_tax: 6, breathDrain: 20, special: { type: "demolish", label: "碎甲", ap: 6, br: 20, armorMult: 3.0 } } }),
     P("yan", "燕小乙", "弓", { hpMax: 45, skill: 56, def: 8, shield: 0, resolve: 42,
       initBase: 112, breathBase: 94, armor: "bujia", helmet: "bumao", wpn_q: "liang",
-      wpn: { kind: "ranged", label: "猎弓", hands: 2, acc: 10, dmin: 14, dmax: 24, armorEff: 0.6, pierce: 0.35, ap: 4, br: 8, br_tax: 2, range: 7, falloff: 3, special: { type: "aimed", label: "瞄准", ap: 6, br: 12, accBonus: 10, falloff: 2 } },
-      wpn2: { kind: "melee", label: "匕首", hands: 1, acc: -15, dmin: 14, dmax: 22, armorEff: 0.0, pierce: 1.0, ap: 4, br: 10, br_tax: 1, noHead: true } }),
+      wpn: { kind: "ranged", label: "猎弓", dura: 48, hands: 2, acc: 10, dmin: 14, dmax: 24, armorEff: 0.6, pierce: 0.35, ap: 4, br: 8, br_tax: 2, range: 7, falloff: 3, special: { type: "aimed", label: "瞄准", ap: 6, br: 12, accBonus: 10, falloff: 2 } },
+      wpn2: { kind: "melee", label: "匕首", dura: 40, hands: 1, acc: -15, dmin: 14, dmax: 22, armorEff: 0.0, pierce: 1.0, ap: 4, br: 10, br_tax: 1, noHead: true } }),
     E("duyan", "独眼龙", "刀", { hpMax: 50, skill: 52, def: 4, shield: 0, resolve: 38,
       initBase: 100, breathBase: 89, armor: "bujia", helmet: "bumao",
-      wpn: { kind: "melee", label: "砍刀", hands: 1, acc: 10, dmin: 17, dmax: 26, armorEff: 1.0, pierce: 0.3, ap: 4, br: 12, br_tax: 2, bleed: true, special: { type: "decap", label: "斩首", ap: 5, br: 15, dmgMult: 1.3 } } }),
+      wpn: { kind: "melee", label: "砍刀", dura: 56, hands: 1, acc: 10, dmin: 17, dmax: 26, armorEff: 1.0, pierce: 0.3, ap: 4, br: 12, br_tax: 2, bleed: true, special: { type: "decap", label: "斩首", ap: 5, br: 15, dmgMult: 1.3 } } }),
     E("erma", "二麻子", "刀", { hpMax: 50, skill: 52, def: 4, shield: 0, resolve: 38,
       initBase: 98, breathBase: 89, armor: "bujia", helmet: "bumao",
-      wpn: { kind: "melee", label: "砍刀", hands: 1, acc: 10, dmin: 17, dmax: 26, armorEff: 1.0, pierce: 0.3, ap: 4, br: 12, br_tax: 2, bleed: true, special: { type: "decap", label: "斩首", ap: 5, br: 15, dmgMult: 1.3 } } }),
+      wpn: { kind: "melee", label: "砍刀", dura: 56, hands: 1, acc: 10, dmin: 17, dmax: 26, armorEff: 1.0, pierce: 0.3, ap: 4, br: 12, br_tax: 2, bleed: true, special: { type: "decap", label: "斩首", ap: 5, br: 15, dmgMult: 1.3 } } }),
     E("xiaohu", "笑面虎", "斧", { hpMax: 55, skill: 54, def: 4, shield: 0, resolve: 40,
       initBase: 94, breathBase: 86, armor: "bujia", helmet: "pikui",
-      wpn: { kind: "melee", label: "大斧", hands: 2, acc: 5, dmin: 30, dmax: 44, armorEff: 1.3, pierce: 0.25, ap: 6, br: 16, br_tax: 5, chop: true, special: { type: "sweep", label: "横扫", ap: 6, br: 20, acc: -10 } } }),
+      wpn: { kind: "melee", label: "大斧", dura: 64, hands: 2, acc: 5, dmin: 30, dmax: 44, armorEff: 1.3, pierce: 0.25, ap: 6, br: 16, br_tax: 5, chop: true, special: { type: "sweep", label: "横扫", ap: 6, br: 20, acc: -10 } } }),
     E("yemao", "夜猫子", "弓", { hpMax: 42, skill: 50, def: 6, shield: 0, resolve: 36,
       initBase: 108, breathBase: 91, armor: "bujia", helmet: "none_h",
-      wpn: { kind: "ranged", label: "猎弓", hands: 2, acc: 10, dmin: 14, dmax: 24, armorEff: 0.6, pierce: 0.35, ap: 4, br: 8, br_tax: 2, range: 7, falloff: 3, special: { type: "aimed", label: "瞄准", ap: 6, br: 12, accBonus: 10, falloff: 2 } },
-      wpn2: { kind: "melee", label: "短刀", hands: 1, acc: 0, dmin: 14, dmax: 22, armorEff: 0.8, pierce: 0.3, ap: 4, br: 10, br_tax: 1 } }),
+      wpn: { kind: "ranged", label: "猎弓", dura: 48, hands: 2, acc: 10, dmin: 14, dmax: 24, armorEff: 0.6, pierce: 0.35, ap: 4, br: 8, br_tax: 2, range: 7, falloff: 3, special: { type: "aimed", label: "瞄准", ap: 6, br: 12, accBonus: 10, falloff: 2 } },
+      wpn2: { kind: "melee", label: "短刀", dura: 48, hands: 1, acc: 0, dmin: 14, dmax: 22, armorEff: 0.8, pierce: 0.3, ap: 4, br: 10, br_tax: 1 } }),
     E("diao", "坐山雕", "首", { hpMax: 70, skill: 62, def: 12, shield: 15, resolve: 55,
       initBase: 92, breathBase: 91, armor: "tiejia", helmet: "tiekui", leader: true,
-      wpn: { kind: "melee", label: "九环刀", hands: 1, acc: 10, dmin: 24, dmax: 34, armorEff: 1.0, pierce: 0.3, ap: 4, br: 12, br_tax: 3, bleed: true, special: { type: "decap", label: "斩首", ap: 5, br: 15, dmgMult: 1.3 } } }),
+      wpn: { kind: "melee", label: "九环刀", dura: 64, hands: 1, acc: 10, dmin: 24, dmax: 34, armorEff: 1.0, pierce: 0.3, ap: 4, br: 12, br_tax: 3, bleed: true, special: { type: "decap", label: "斩首", ap: 5, br: 15, dmgMult: 1.3 } } }),
     // ---- the assault specialists (攻寨 roster) ----
     P("chen", "陈短矛", "矛", { hpMax: 58, skill: 58, def: 8, shield: 15, resolve: 46,
       initBase: 100, breathBase: 89, armor: "pijia", helmet: "pikui",
-      wpn: { kind: "melee", label: "短矛", hands: 1, acc: 15, dmin: 16, dmax: 24, armorEff: 0.9, pierce: 0.25, ap: 4, br: 11, br_tax: 2, special: { type: "spearwall", label: "枪阵", ap: 3, br: 16 } } }),
+      wpn: { kind: "melee", label: "短矛", dura: 56, hands: 1, acc: 15, dmin: 16, dmax: 24, armorEff: 0.9, pierce: 0.25, ap: 4, br: 11, br_tax: 2, special: { type: "spearwall", label: "枪阵", ap: 3, br: 16 } } }),
     P("he", "何九鞭", "鞭", { hpMax: 52, skill: 57, def: 7, shield: 0, resolve: 44,
       initBase: 106, breathBase: 90, armor: "bujia", helmet: "pikui",
-      wpn: { kind: "melee", label: "九节鞭", hands: 1, acc: 5, dmin: 18, dmax: 28, armorEff: 0.9, pierce: 0.3, ap: 4, br: 13, br_tax: 3, ignoreShield: true, headBonus: 10, special: { type: "headhunt", label: "兜头", ap: 5, br: 16, headMult: 2.0, acc: -15, missBr: 15 } } }),
+      wpn: { kind: "melee", label: "九节鞭", dura: 56, hands: 1, acc: 5, dmin: 18, dmax: 28, armorEff: 0.9, pierce: 0.3, ap: 4, br: 13, br_tax: 3, ignoreShield: true, headBonus: 10, special: { type: "headhunt", label: "兜头", ap: 5, br: 16, headMult: 2.0, acc: -15, missBr: 15 } } }),
     P("lu", "鲁大弩", "弩", { hpMax: 48, skill: 54, def: 6, shield: 0, resolve: 45,
       initBase: 95, breathBase: 89, armor: "pijia", helmet: "bumao",
-      wpn: { kind: "ranged", label: "弩", hands: 2, acc: 15, dmin: 22, dmax: 32, armorEff: 0.8, pierce: 0.5, ap: 4, br: 10, br_tax: 4, range: 6, falloff: 2, special: { type: "aimed", label: "瞄准", ap: 6, br: 14, accBonus: 10, falloff: 1 } },
-      wpn2: { kind: "melee", label: "短刀", hands: 1, acc: 0, dmin: 14, dmax: 22, armorEff: 0.8, pierce: 0.3, ap: 4, br: 10, br_tax: 1 } }),
+      wpn: { kind: "ranged", label: "弩", dura: 48, hands: 2, acc: 15, dmin: 22, dmax: 32, armorEff: 0.8, pierce: 0.5, ap: 4, br: 10, br_tax: 4, range: 6, falloff: 2, special: { type: "aimed", label: "瞄准", ap: 6, br: 14, accBonus: 10, falloff: 1 } },
+      wpn2: { kind: "melee", label: "短刀", dura: 48, hands: 1, acc: 0, dmin: 14, dmax: 22, armorEff: 0.8, pierce: 0.3, ap: 4, br: 10, br_tax: 1 } }),
     P("zhou", "周大刀", "关", { hpMax: 60, skill: 58, def: 6, shield: 0, resolve: 47,
       initBase: 93, breathBase: 90, armor: "pijia", helmet: "pikui",
-      wpn: { kind: "melee", label: "大关刀", hands: 2, acc: 8, dmin: 28, dmax: 42, armorEff: 1.2, pierce: 0.3, ap: 6, br: 17, br_tax: 6, chop: true, bleed: true, special: { type: "sweep", label: "横扫", ap: 6, br: 20, acc: -10 } } }),
+      wpn: { kind: "melee", label: "大关刀", dura: 64, hands: 2, acc: 8, dmin: 28, dmax: 42, armorEff: 1.2, pierce: 0.3, ap: 6, br: 17, br_tax: 6, chop: true, bleed: true, special: { type: "sweep", label: "横扫", ap: 6, br: 20, acc: -10 } } }),
     // ---- the militia line (会战 roster): hired 乡勇 — the player's rank-and-file ----
     P("xya", "乡勇·甲", "勇", { hpMax: 42, skill: 47, def: 4, shield: 0, resolve: 34,
       initBase: 99, breathBase: 86, armor: "bujia", helmet: "bumao",
-      wpn: { kind: "melee", label: "长枪", hands: 2, reach: 2, acc: 20, dmin: 22, dmax: 32, armorEff: 0.9, pierce: 0.3, ap: 6, br: 15, br_tax: 4, special: { type: "spearwall", label: "枪林", ap: 3, br: 18 } } }),
+      wpn: { kind: "melee", label: "长枪", dura: 64, hands: 2, reach: 2, acc: 20, dmin: 22, dmax: 32, armorEff: 0.9, pierce: 0.3, ap: 6, br: 15, br_tax: 4, special: { type: "spearwall", label: "枪林", ap: 3, br: 18 } } }),
     P("xyb", "乡勇·乙", "勇", { hpMax: 42, skill: 46, def: 4, shield: 0, resolve: 33,
       initBase: 98, breathBase: 86, armor: "bujia", helmet: "bumao",
-      wpn: { kind: "melee", label: "长枪", hands: 2, reach: 2, acc: 20, dmin: 22, dmax: 32, armorEff: 0.9, pierce: 0.3, ap: 6, br: 15, br_tax: 4, special: { type: "spearwall", label: "枪林", ap: 3, br: 18 } } }),
+      wpn: { kind: "melee", label: "长枪", dura: 64, hands: 2, reach: 2, acc: 20, dmin: 22, dmax: 32, armorEff: 0.9, pierce: 0.3, ap: 6, br: 15, br_tax: 4, special: { type: "spearwall", label: "枪林", ap: 3, br: 18 } } }),
     P("xyc", "乡勇·丙", "勇", { hpMax: 44, skill: 46, def: 4, shield: 10, resolve: 34,
       initBase: 97, breathBase: 85, armor: "bujia", helmet: "bumao",
-      wpn: { kind: "melee", label: "短矛", hands: 1, acc: 15, dmin: 16, dmax: 24, armorEff: 0.9, pierce: 0.25, ap: 4, br: 11, br_tax: 2, special: { type: "spearwall", label: "枪阵", ap: 3, br: 16 } } }),
+      wpn: { kind: "melee", label: "短矛", dura: 56, hands: 1, acc: 15, dmin: 16, dmax: 24, armorEff: 0.9, pierce: 0.25, ap: 4, br: 11, br_tax: 2, special: { type: "spearwall", label: "枪阵", ap: 3, br: 16 } } }),
     P("xyd", "乡勇·丁", "勇", { hpMax: 44, skill: 45, def: 4, shield: 10, resolve: 33,
       initBase: 96, breathBase: 85, armor: "bujia", helmet: "bumao",
-      wpn: { kind: "melee", label: "短矛", hands: 1, acc: 15, dmin: 16, dmax: 24, armorEff: 0.9, pierce: 0.25, ap: 4, br: 11, br_tax: 2, special: { type: "spearwall", label: "枪阵", ap: 3, br: 16 } } }),
+      wpn: { kind: "melee", label: "短矛", dura: 56, hands: 1, acc: 15, dmin: 16, dmax: 24, armorEff: 0.9, pierce: 0.25, ap: 4, br: 11, br_tax: 2, special: { type: "spearwall", label: "枪阵", ap: 3, br: 16 } } }),
     E("shemao", "蛇矛子", "矛", { hpMax: 52, skill: 55, def: 6, shield: 0, resolve: 40,
       initBase: 96, breathBase: 89, armor: "pijia", helmet: "bumao",
-      wpn: { kind: "melee", label: "长枪", hands: 2, reach: 2, acc: 20, dmin: 22, dmax: 32, armorEff: 0.9, pierce: 0.3, ap: 6, br: 15, br_tax: 4, special: { type: "spearwall", label: "枪林", ap: 3, br: 18 } } }),
+      wpn: { kind: "melee", label: "长枪", dura: 64, hands: 2, reach: 2, acc: 20, dmin: 22, dmax: 32, armorEff: 0.9, pierce: 0.3, ap: 6, br: 15, br_tax: 4, special: { type: "spearwall", label: "枪林", ap: 3, br: 18 } } }),
     E("zuanshan", "钻山豹", "戟", { hpMax: 54, skill: 55, def: 6, shield: 0, resolve: 41,
       initBase: 97, breathBase: 88, armor: "pijia", helmet: "bumao",
-      wpn: { kind: "melee", label: "戟", hands: 2, reach: 2, acc: 12, dmin: 22, dmax: 32, armorEff: 1.0, pierce: 0.35, ap: 6, br: 15, br_tax: 5, special: { type: "sweep", label: "横扫", ap: 6, br: 20, acc: -10 } } }),
+      wpn: { kind: "melee", label: "戟", dura: 64, hands: 2, reach: 2, acc: 12, dmin: 22, dmax: 32, armorEff: 1.0, pierce: 0.35, ap: 6, br: 15, br_tax: 5, special: { type: "sweep", label: "横扫", ap: 6, br: 20, acc: -10 } } }),
     E("lla", "喽啰·甲", "卒", { hpMax: 40, skill: 46, def: 3, shield: 0, resolve: 30,
       initBase: 102, breathBase: 85, armor: "bujia", helmet: "none_h",
-      wpn: { kind: "melee", label: "短刀", hands: 1, acc: 0, dmin: 14, dmax: 22, armorEff: 0.8, pierce: 0.3, ap: 4, br: 10, br_tax: 1 } }),
+      wpn: { kind: "melee", label: "短刀", dura: 48, hands: 1, acc: 0, dmin: 14, dmax: 22, armorEff: 0.8, pierce: 0.3, ap: 4, br: 10, br_tax: 1 } }),
     E("llb", "喽啰·乙", "卒", { hpMax: 40, skill: 46, def: 3, shield: 0, resolve: 30,
       initBase: 101, breathBase: 85, armor: "bujia", helmet: "none_h",
-      wpn: { kind: "melee", label: "短刀", hands: 1, acc: 0, dmin: 14, dmax: 22, armorEff: 0.8, pierce: 0.3, ap: 4, br: 10, br_tax: 1 } }),
+      wpn: { kind: "melee", label: "短刀", dura: 48, hands: 1, acc: 0, dmin: 14, dmax: 22, armorEff: 0.8, pierce: 0.3, ap: 4, br: 10, br_tax: 1 } }),
     E("llc", "喽啰·丙", "卒", { hpMax: 40, skill: 46, def: 3, shield: 0, resolve: 30,
       initBase: 100, breathBase: 85, armor: "bujia", helmet: "none_h",
-      wpn: { kind: "melee", label: "短刀", hands: 1, acc: 0, dmin: 14, dmax: 22, armorEff: 0.8, pierce: 0.3, ap: 4, br: 10, br_tax: 1 } }),
+      wpn: { kind: "melee", label: "短刀", dura: 48, hands: 1, acc: 0, dmin: 14, dmax: 22, armorEff: 0.8, pierce: 0.3, ap: 4, br: 10, br_tax: 1 } }),
     E("lld", "喽啰·丁", "卒", { hpMax: 40, skill: 46, def: 3, shield: 0, resolve: 30,
       initBase: 99, breathBase: 85, armor: "bujia", helmet: "none_h",
-      wpn: { kind: "melee", label: "短刀", hands: 1, acc: 0, dmin: 14, dmax: 22, armorEff: 0.8, pierce: 0.3, ap: 4, br: 10, br_tax: 1 } }),
+      wpn: { kind: "melee", label: "短刀", dura: 48, hands: 1, acc: 0, dmin: 14, dmax: 22, armorEff: 0.8, pierce: 0.3, ap: 4, br: 10, br_tax: 1 } }),
     E("guoshanfeng", "过山风", "首", { hpMax: 62, skill: 58, def: 9, shield: 15, resolve: 50,
       initBase: 95, breathBase: 88, armor: "pijia", helmet: "pikui", leader: true,
-      wpn: { kind: "melee", label: "九环刀", hands: 1, acc: 10, dmin: 24, dmax: 34, armorEff: 1.0, pierce: 0.3, ap: 4, br: 12, br_tax: 3, bleed: true, special: { type: "decap", label: "斩首", ap: 5, br: 15, dmgMult: 1.3 } } }),
+      wpn: { kind: "melee", label: "九环刀", dura: 64, hands: 1, acc: 10, dmin: 24, dmax: 34, armorEff: 1.0, pierce: 0.3, ap: 4, br: 12, br_tax: 3, bleed: true, special: { type: "decap", label: "斩首", ap: 5, br: 15, dmgMult: 1.3 } } }),
     // ---- the Khitan column (血战 roster): 皮室 iron guard + Han auxiliaries ----
     // Cavalry is M4; this is the dismounted 打草谷 column — 骨朵 mace ≈ 大锤.
     E("xiangwen", "耶律详稳", "辽", { hpMax: 68, skill: 63, def: 12, shield: 15, resolve: 58,
       initBase: 95, breathBase: 92, armor: "tiejia", helmet: "tiekui", leader: true,
-      wpn: { kind: "melee", label: "九环刀", hands: 1, acc: 10, dmin: 24, dmax: 34, armorEff: 1.0, pierce: 0.3, ap: 4, br: 12, br_tax: 3, bleed: true, special: { type: "decap", label: "斩首", ap: 5, br: 15, dmgMult: 1.3 } } }),
+      wpn: { kind: "melee", label: "九环刀", dura: 64, hands: 1, acc: 10, dmin: 24, dmax: 34, armorEff: 1.0, pierce: 0.3, ap: 4, br: 12, br_tax: 3, bleed: true, special: { type: "decap", label: "斩首", ap: 5, br: 15, dmgMult: 1.3 } } }),
     E("psa", "皮室·甲", "辽", { hpMax: 60, skill: 59, def: 7, shield: 0, resolve: 52,
       initBase: 94, breathBase: 92, armor: "tiejia", helmet: "tiekui",
-      wpn: { kind: "melee", label: "长枪", hands: 2, reach: 2, acc: 20, dmin: 22, dmax: 32, armorEff: 0.9, pierce: 0.3, ap: 6, br: 15, br_tax: 4, special: { type: "spearwall", label: "枪林", ap: 3, br: 18 } } }),
+      wpn: { kind: "melee", label: "长枪", dura: 64, hands: 2, reach: 2, acc: 20, dmin: 22, dmax: 32, armorEff: 0.9, pierce: 0.3, ap: 6, br: 15, br_tax: 4, special: { type: "spearwall", label: "枪林", ap: 3, br: 18 } } }),
     E("psb", "皮室·乙", "辽", { hpMax: 60, skill: 58, def: 7, shield: 0, resolve: 51,
       initBase: 93, breathBase: 92, armor: "tiejia", helmet: "tiekui",
-      wpn: { kind: "melee", label: "长枪", hands: 2, reach: 2, acc: 20, dmin: 22, dmax: 32, armorEff: 0.9, pierce: 0.3, ap: 6, br: 15, br_tax: 4, special: { type: "spearwall", label: "枪林", ap: 3, br: 18 } } }),
+      wpn: { kind: "melee", label: "长枪", dura: 64, hands: 2, reach: 2, acc: 20, dmin: 22, dmax: 32, armorEff: 0.9, pierce: 0.3, ap: 6, br: 15, br_tax: 4, special: { type: "spearwall", label: "枪林", ap: 3, br: 18 } } }),
     E("psc", "皮室·丙", "辽", { hpMax: 62, skill: 58, def: 7, shield: 0, resolve: 52,
       initBase: 92, breathBase: 91, armor: "tiejia", helmet: "tiekui",
-      wpn: { kind: "melee", label: "大斧", hands: 2, acc: 5, dmin: 30, dmax: 44, armorEff: 1.3, pierce: 0.25, ap: 6, br: 16, br_tax: 5, chop: true, special: { type: "sweep", label: "横扫", ap: 6, br: 20, acc: -10 } } }),
+      wpn: { kind: "melee", label: "大斧", dura: 64, hands: 2, acc: 5, dmin: 30, dmax: 44, armorEff: 1.3, pierce: 0.25, ap: 6, br: 16, br_tax: 5, chop: true, special: { type: "sweep", label: "横扫", ap: 6, br: 20, acc: -10 } } }),
     E("psd", "皮室·丁", "辽", { hpMax: 62, skill: 57, def: 7, shield: 0, resolve: 51,
       initBase: 91, breathBase: 93, armor: "tiejia", helmet: "tiekui",
-      wpn: { kind: "melee", label: "大锤", hands: 2, acc: 5, dmin: 28, dmax: 40, armorEff: 2.0, pierce: 0.2, ap: 6, br: 18, br_tax: 6, breathDrain: 20, special: { type: "demolish", label: "碎甲", ap: 6, br: 20, armorMult: 3.0 } } }),
+      wpn: { kind: "melee", label: "大锤", dura: 72, hands: 2, acc: 5, dmin: 28, dmax: 40, armorEff: 2.0, pierce: 0.2, ap: 6, br: 18, br_tax: 6, breathDrain: 20, special: { type: "demolish", label: "碎甲", ap: 6, br: 20, armorMult: 3.0 } } }),
     E("sda", "射雕手·甲", "弓", { hpMax: 48, skill: 57, def: 6, shield: 0, resolve: 44,
       initBase: 110, breathBase: 92, armor: "pijia", helmet: "bumao",
-      wpn: { kind: "ranged", label: "猎弓", hands: 2, acc: 10, dmin: 14, dmax: 24, armorEff: 0.6, pierce: 0.35, ap: 4, br: 8, br_tax: 2, range: 7, falloff: 3, special: { type: "aimed", label: "瞄准", ap: 6, br: 12, accBonus: 10, falloff: 2 } },
-      wpn2: { kind: "melee", label: "短刀", hands: 1, acc: 0, dmin: 14, dmax: 22, armorEff: 0.8, pierce: 0.3, ap: 4, br: 10, br_tax: 1 } }),
+      wpn: { kind: "ranged", label: "猎弓", dura: 48, hands: 2, acc: 10, dmin: 14, dmax: 24, armorEff: 0.6, pierce: 0.35, ap: 4, br: 8, br_tax: 2, range: 7, falloff: 3, special: { type: "aimed", label: "瞄准", ap: 6, br: 12, accBonus: 10, falloff: 2 } },
+      wpn2: { kind: "melee", label: "短刀", dura: 48, hands: 1, acc: 0, dmin: 14, dmax: 22, armorEff: 0.8, pierce: 0.3, ap: 4, br: 10, br_tax: 1 } }),
     E("sdb", "射雕手·乙", "弓", { hpMax: 48, skill: 56, def: 6, shield: 0, resolve: 43,
       initBase: 109, breathBase: 92, armor: "pijia", helmet: "bumao",
-      wpn: { kind: "ranged", label: "猎弓", hands: 2, acc: 10, dmin: 14, dmax: 24, armorEff: 0.6, pierce: 0.35, ap: 4, br: 8, br_tax: 2, range: 7, falloff: 3, special: { type: "aimed", label: "瞄准", ap: 6, br: 12, accBonus: 10, falloff: 2 } },
-      wpn2: { kind: "melee", label: "短刀", hands: 1, acc: 0, dmin: 14, dmax: 22, armorEff: 0.8, pierce: 0.3, ap: 4, br: 10, br_tax: 1 } }),
+      wpn: { kind: "ranged", label: "猎弓", dura: 48, hands: 2, acc: 10, dmin: 14, dmax: 24, armorEff: 0.6, pierce: 0.35, ap: 4, br: 8, br_tax: 2, range: 7, falloff: 3, special: { type: "aimed", label: "瞄准", ap: 6, br: 12, accBonus: 10, falloff: 2 } },
+      wpn2: { kind: "melee", label: "短刀", dura: 48, hands: 1, acc: 0, dmin: 14, dmax: 22, armorEff: 0.8, pierce: 0.3, ap: 4, br: 10, br_tax: 1 } }),
     E("hqa", "汉军枪手·甲", "枪", { hpMax: 50, skill: 53, def: 5, shield: 0, resolve: 42,
       initBase: 98, breathBase: 88, armor: "pijia", helmet: "pikui",
-      wpn: { kind: "melee", label: "长枪", hands: 2, reach: 2, acc: 20, dmin: 22, dmax: 32, armorEff: 0.9, pierce: 0.3, ap: 6, br: 15, br_tax: 4, special: { type: "spearwall", label: "枪林", ap: 3, br: 18 } } }),
+      wpn: { kind: "melee", label: "长枪", dura: 64, hands: 2, reach: 2, acc: 20, dmin: 22, dmax: 32, armorEff: 0.9, pierce: 0.3, ap: 6, br: 15, br_tax: 4, special: { type: "spearwall", label: "枪林", ap: 3, br: 18 } } }),
     E("hqb", "汉军枪手·乙", "枪", { hpMax: 50, skill: 52, def: 5, shield: 0, resolve: 41,
       initBase: 97, breathBase: 88, armor: "pijia", helmet: "pikui",
-      wpn: { kind: "melee", label: "长枪", hands: 2, reach: 2, acc: 20, dmin: 22, dmax: 32, armorEff: 0.9, pierce: 0.3, ap: 6, br: 15, br_tax: 4, special: { type: "spearwall", label: "枪林", ap: 3, br: 18 } } }),
+      wpn: { kind: "melee", label: "长枪", dura: 64, hands: 2, reach: 2, acc: 20, dmin: 22, dmax: 32, armorEff: 0.9, pierce: 0.3, ap: 6, br: 15, br_tax: 4, special: { type: "spearwall", label: "枪林", ap: 3, br: 18 } } }),
     E("hqc", "汉军枪手·丙", "枪", { hpMax: 52, skill: 53, def: 5, shield: 12, resolve: 42,
       initBase: 96, breathBase: 87, armor: "pijia", helmet: "pikui",
-      wpn: { kind: "melee", label: "短矛", hands: 1, acc: 15, dmin: 16, dmax: 24, armorEff: 0.9, pierce: 0.25, ap: 4, br: 11, br_tax: 2, special: { type: "spearwall", label: "枪阵", ap: 3, br: 16 } } }),
+      wpn: { kind: "melee", label: "短矛", dura: 56, hands: 1, acc: 15, dmin: 16, dmax: 24, armorEff: 0.9, pierce: 0.25, ap: 4, br: 11, br_tax: 2, special: { type: "spearwall", label: "枪阵", ap: 3, br: 16 } } }),
     E("hna", "汉军弩手·甲", "弩", { hpMax: 46, skill: 53, def: 5, shield: 0, resolve: 41,
       initBase: 99, breathBase: 89, armor: "pijia", helmet: "bumao",
-      wpn: { kind: "ranged", label: "弩", hands: 2, acc: 15, dmin: 22, dmax: 32, armorEff: 0.8, pierce: 0.5, ap: 4, br: 10, br_tax: 4, range: 6, falloff: 2, special: { type: "aimed", label: "瞄准", ap: 6, br: 14, accBonus: 10, falloff: 1 } },
-      wpn2: { kind: "melee", label: "短刀", hands: 1, acc: 0, dmin: 14, dmax: 22, armorEff: 0.8, pierce: 0.3, ap: 4, br: 10, br_tax: 1 } }),
+      wpn: { kind: "ranged", label: "弩", dura: 48, hands: 2, acc: 15, dmin: 22, dmax: 32, armorEff: 0.8, pierce: 0.5, ap: 4, br: 10, br_tax: 4, range: 6, falloff: 2, special: { type: "aimed", label: "瞄准", ap: 6, br: 14, accBonus: 10, falloff: 1 } },
+      wpn2: { kind: "melee", label: "短刀", dura: 48, hands: 1, acc: 0, dmin: 14, dmax: 22, armorEff: 0.8, pierce: 0.3, ap: 4, br: 10, br_tax: 1 } }),
     E("hnb", "汉军弩手·乙", "弩", { hpMax: 46, skill: 52, def: 5, shield: 0, resolve: 40,
       initBase: 98, breathBase: 89, armor: "pijia", helmet: "bumao",
-      wpn: { kind: "ranged", label: "弩", hands: 2, acc: 15, dmin: 22, dmax: 32, armorEff: 0.8, pierce: 0.5, ap: 4, br: 10, br_tax: 4, range: 6, falloff: 2, special: { type: "aimed", label: "瞄准", ap: 6, br: 14, accBonus: 10, falloff: 1 } },
-      wpn2: { kind: "melee", label: "短刀", hands: 1, acc: 0, dmin: 14, dmax: 22, armorEff: 0.8, pierce: 0.3, ap: 4, br: 10, br_tax: 1 } }),
+      wpn: { kind: "ranged", label: "弩", dura: 48, hands: 2, acc: 15, dmin: 22, dmax: 32, armorEff: 0.8, pierce: 0.5, ap: 4, br: 10, br_tax: 4, range: 6, falloff: 2, special: { type: "aimed", label: "瞄准", ap: 6, br: 14, accBonus: 10, falloff: 1 } },
+      wpn2: { kind: "melee", label: "短刀", dura: 48, hands: 1, acc: 0, dmin: 14, dmax: 22, armorEff: 0.8, pierce: 0.3, ap: 4, br: 10, br_tax: 1 } }),
   ];
 }
 /* deployments come from the scenario file (scenarios/<id>.json) */
@@ -550,6 +552,7 @@ function applyHit(atk, def, isFree, opts = {}) {
   if (doubleGrip(atk)) dmg = Math.round(dmg * 1.25); // empty off-hand
   if (opts.mult) dmg = Math.round(dmg * opts.mult);
   if (isFree && opts.halfDmg) dmg = Math.round(dmg * 0.5);
+  if ((atk.wpn.duraNow ?? 1) <= 0) dmg = Math.round(dmg * 0.5); // 卷刃 bites half
   const part = head ? "armorH" : "armorB";
   const armorBefore = def[part];
   let armorDmg, hpDmg, mult = 1;
@@ -578,9 +581,27 @@ function applyHit(atk, def, isFree, opts = {}) {
   float(def, hpDmg > 0 ? "−" + hpDmg : "⛨−" + armorDmg, hpDmg > 0 ? "#a02818" : "#6f6450");
   if (battleStats[atk.id]) battleStats[atk.id].dmg += armorDmg + hpDmg;
 
+  // BB durability: steel dulls on steel — melee on a part holding ≥50 armor
+  if (atk.wpn.kind === "melee" && armorBefore >= 50 && atk.wpn.duraNow != null) {
+    const before = atk.wpn.duraNow;
+    atk.wpn.duraNow = Math.max(0, before - 3);
+    if (before > 0 && atk.wpn.duraNow === 0)
+      log(`${atk.name}的${atk.wpn.label}砍崩了口——<b>卷刃</b>（伤害减半，须修缮）`, "sys");
+  }
+
   if (def.hp <= 0) { kill(def, atk, opts.fearMod || 0); }
   else if (hpDmg >= 15) { moraleCheck(def, -10, "重创"); }
   return true;
+}
+
+/* BB: bows and crossbows pay 2 durability per shot, hit or miss */
+function shotWear(u) {
+  if (u.wpn.kind === "ranged" && u.wpn.duraNow != null) {
+    const before = u.wpn.duraNow;
+    u.wpn.duraNow = Math.max(0, before - 2);
+    if (before > 0 && u.wpn.duraNow === 0)
+      log(`${u.name}的${u.wpn.label}弦疲弓乏——<b>卷刃</b>（伤害减半，须修缮）`, "sys");
+  }
 }
 
 function kill(u, killer, fearMod = 0) {
@@ -857,6 +878,7 @@ async function doAttack(u, t, useSpecial) {
   const cost = useSpecial ? sp : u.wpn;
   u.ap -= cost.ap;
   u.breath -= cost.br;
+  shotWear(u);
   const opts = useSpecial ? specialOpts(sp) : {};
   if (useSpecial && sp.type === "sweep") {
     // round swing: everyone adjacent, friend and foe
@@ -1002,7 +1024,14 @@ function checkEnd() {
     const ov = document.getElementById("overlay");
     if (CAMPAIGN) {
       // the verdict flows back to the map: razed lairs, broken bands, retreats
-      const verdict = { scenario: scenario.id, winner: e === 0 ? "player" : "enemy" };
+      const verdict = { scenario: scenario.id, winner: e === 0 ? "player" : "enemy",
+        wear: units.filter((u) => u.side === "player").map((u) => ({
+          id: u.id,
+          armorLost: u.armorB0 - u.armorB,
+          helmLost: u.armorH0 - u.armorH,
+          wpns: [u.wpn, u.wpn2].filter(Boolean).map((w) => (
+            { base: w.label.split("·").pop(), dura: w.duraNow })),
+        })) };
       try {
         if (window.parent !== window && window.parent.__sjBattleVerdict) {
           window.parent.__sjBattleVerdict(verdict);   // one-file edition: direct
@@ -1471,7 +1500,7 @@ function renderInspect(u) {
     `${u.bleed > 0 ? ` · <b style="color:#a02818">流血</b>` : ""}<br>` +
     `血 ${u.hp}/${u.hpMax} ｜ ${qSpan(u.armorName, u.armorQ)} ${u.armorB}/${u.armorB0} · ${qSpan(u.helmName, u.helmQ)} ${u.armorH}/${u.armorH0} ｜ 招架 ${u.def}${u.shield ? "+" + u.shield : ""}<br>` +
     `甲械坠气 ${u.carryTax}（气力上限 ${u.breathBase}−坠气＝${u.breathMax}）<br>` +
-    `兵器 ${qSpan(w.label, w.quality)}：伤 ${w.dmin}–${w.dmax} ｜ 破甲 ${Math.round(w.armorEff * 100)}% ｜ 穿甲 ${Math.round(w.pierce * 100)}%` +
+    `兵器 ${qSpan(w.label, w.quality)}：伤 ${w.dmin}–${w.dmax}${w.duraNow != null ? `（耐久 ${w.duraNow}/${w.dura}${w.duraNow <= 0 ? "·卷刃" : ""}）` : ""} ｜ 破甲 ${Math.round(w.armorEff * 100)}% ｜ 穿甲 ${Math.round(w.pierce * 100)}%` +
     ` ｜ 每击 ${w.ap} 行动力 / ${w.br} 气力 ｜ 坠气 ${w.br_tax}<br>` +
     `武艺 ${u.skill} ｜ 胆识 ${u.resolve} ｜ 气力 ${u.breath}/${u.breathMax} ｜ 当前先手 ${initNow}` +
     (traits.length ? `<br>特性：${traits.join("；")}` : "");
@@ -1528,10 +1557,22 @@ async function boot() {
     if (!tplById[su.id]) throw new Error(`战役 ${scenId}：未知单位 "${su.id}"`);
     if (seenIds.has(su.id)) throw new Error(`战役 ${scenId}：单位 "${su.id}" 重复上场（id 必须唯一）`);
     seenIds.add(su.id);
+    let cond = null;
     if (CGEAR && tplById[su.id].side === "player" && CGEAR[su.id]) {
-      su = Object.assign({}, su, CGEAR[su.id]);  // the smith's work rides to war
+      cond = CGEAR[su.id];
+      su = Object.assign({}, su, cond);          // the smith's work rides to war
     }
     const un = mkUnit(tplById[su.id], su.spawn[0], su.spawn[1], su); // su carries 品阶 overrides
+    if (cond) {                                  // ...and so do the dents
+      const tplW = tplById[su.id].wpn.label, tplW2 = tplById[su.id].wpn2 && tplById[su.id].wpn2.label;
+      for (const w of [un.wpn, un.wpn2].filter(Boolean)) {
+        const base = w.label.split("·").pop();
+        if (base === tplW && cond.wpn_dura != null) w.duraNow = Math.min(cond.wpn_dura, w.dura);
+        if (tplW2 && base === tplW2 && cond.wpn2_dura != null) w.duraNow = Math.min(cond.wpn2_dura, w.dura);
+      }
+      if (cond.armor_dmg) { un.armorB = Math.max(0, un.armorB - cond.armor_dmg); un.armorB0 = un.armorB; }
+      if (cond.helm_dmg) { un.armorH = Math.max(0, un.armorH - cond.helm_dmg); un.armorH0 = un.armorH; }
+    }
     un.garrison = su.garrison ?? null; // AI holds within this radius of home
     un.home = { q: su.spawn[0], r: su.spawn[1] };
     battleStats[un.id] = { dmg: 0, kills: 0 };

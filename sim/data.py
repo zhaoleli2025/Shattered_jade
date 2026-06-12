@@ -26,58 +26,58 @@ QUALITY = {
 # is carried (sidearms too, even sheathed) — distinct from per-strike br.
 WEAPONS = {
     "changqiang": dict(  # 长枪 — 2H reach line
-        id="changqiang", label="长枪", kind="melee", hands=2, reach=2, acc=20,
+        id="changqiang", label="长枪", dura=64, kind="melee", hands=2, reach=2, acc=20,
         dmin=22, dmax=32, armor_eff=0.9, pierce=0.30, ap=6, br=15, br_tax=4,
         special=dict(type="spearwall", label="枪林", ap=3, br=18)),
     "yaodao": dict(  # 腰刀 (王铁枪's backup; 刘三刀 carries a 精品)
-        id="yaodao", label="腰刀", kind="melee", hands=1, acc=10,
+        id="yaodao", label="腰刀", dura=56, kind="melee", hands=1, acc=10,
         dmin=18, dmax=26, armor_eff=1.0, pierce=0.30, ap=4, br=12, br_tax=2,
         bleed=True,
         special=dict(type="decap", label="斩首", ap=5, br=15, dmg_mult=1.3)),
     "dachui": dict(  # 大锤 — 2H armor line
-        id="dachui", label="大锤", kind="melee", hands=2, acc=5,
+        id="dachui", label="大锤", dura=72, kind="melee", hands=2, acc=5,
         dmin=28, dmax=40, armor_eff=2.0, pierce=0.20, ap=6, br=18, br_tax=6,
         breath_drain=20,
         special=dict(type="demolish", label="碎甲", ap=6, br=20, armor_mult=3.0)),
     "dafu": dict(  # 大斧 — 2H damage line
-        id="dafu", label="大斧", kind="melee", hands=2, acc=5,
+        id="dafu", label="大斧", dura=64, kind="melee", hands=2, acc=5,
         dmin=30, dmax=44, armor_eff=1.3, pierce=0.25, ap=6, br=16, br_tax=5,
         chop=True,
         special=dict(type="sweep", label="横扫", ap=6, br=20, acc=-10)),
     "ji": dict(  # 戟 — 2H polearm: reach AND the round swing
-        id="ji", label="戟", kind="melee", hands=2, reach=2, acc=12,
+        id="ji", label="戟", dura=64, kind="melee", hands=2, reach=2, acc=12,
         dmin=22, dmax=32, armor_eff=1.0, pierce=0.35, ap=6, br=15, br_tax=5,
         special=dict(type="sweep", label="横扫", ap=6, br=20, acc=-10)),
     "daguandao": dict(  # 大关刀 — 2H heavy blade: the chopping round swing
-        id="daguandao", label="大关刀", kind="melee", hands=2, acc=8,
+        id="daguandao", label="大关刀", dura=64, kind="melee", hands=2, acc=8,
         dmin=28, dmax=42, armor_eff=1.2, pierce=0.30, ap=6, br=17, br_tax=6,
         chop=True, bleed=True,
         special=dict(type="sweep", label="横扫", ap=6, br=20, acc=-10)),
     "liegong": dict(  # 猎弓 (凡品 = bandit grade; 燕小乙 carries a 良品)
-        id="liegong", label="猎弓", kind="ranged", hands=2, acc=10,
+        id="liegong", label="猎弓", dura=48, kind="ranged", hands=2, acc=10,
         dmin=14, dmax=24, armor_eff=0.6, pierce=0.35, ap=4, br=8, br_tax=2,
         range=7, falloff=3,
         special=dict(type="aimed", label="瞄准", ap=6, br=12, acc_bonus=10, falloff=2)),
     "kandao": dict(  # 砍刀
-        id="kandao", label="砍刀", kind="melee", hands=1, acc=10,
+        id="kandao", label="砍刀", dura=56, kind="melee", hands=1, acc=10,
         dmin=17, dmax=26, armor_eff=1.0, pierce=0.30, ap=4, br=12, br_tax=2,
         bleed=True,
         special=dict(type="decap", label="斩首", ap=5, br=15, dmg_mult=1.3)),
     "jiuhuandao": dict(  # 九环刀 (leader)
-        id="jiuhuandao", label="九环刀", kind="melee", hands=1, acc=10,
+        id="jiuhuandao", label="九环刀", dura=64, kind="melee", hands=1, acc=10,
         dmin=24, dmax=34, armor_eff=1.0, pierce=0.30, ap=4, br=12, br_tax=3,
         bleed=True,
         special=dict(type="decap", label="斩首", ap=5, br=15, dmg_mult=1.3)),
     "bishou": dict(  # 匕首 — Puncture: full pierce, no armor damage, no headshots
-        id="bishou", label="匕首", kind="melee", hands=1, acc=-15,
+        id="bishou", label="匕首", dura=40, kind="melee", hands=1, acc=-15,
         dmin=14, dmax=22, armor_eff=0.0, pierce=1.0, ap=4, br=10, br_tax=1,
         no_head=True),
     "duanmao": dict(  # 短矛 — the 1H spear: shield-compatible spearwall
-        id="duanmao", label="短矛", kind="melee", hands=1, acc=15,
+        id="duanmao", label="短矛", dura=56, kind="melee", hands=1, acc=15,
         dmin=16, dmax=24, armor_eff=0.9, pierce=0.25, ap=4, br=11, br_tax=2,
         special=dict(type="spearwall", label="枪阵", ap=3, br=16)),
     "jiujiebian": dict(  # 九节鞭 — flail line: ignores shields, hunts heads
-        id="jiujiebian", label="九节鞭", kind="melee", hands=1, acc=5,
+        id="jiujiebian", label="九节鞭", dura=56, kind="melee", hands=1, acc=5,
         dmin=18, dmax=28, armor_eff=0.9, pierce=0.30, ap=4, br=13, br_tax=3,
         ignore_shield=True, head_bonus=10,
         # the gamble: forced head ×2.0, but −15 to land and a whiff overswings
@@ -85,12 +85,12 @@ WEAPONS = {
         special=dict(type="headhunt", label="兜头", ap=5, br=16, head_mult=2.0,
                      acc=-15, miss_br=15)),
     "nu": dict(  # 弩 — crossbow: flat power, armor-piercing, shorter range
-        id="nu", label="弩", kind="ranged", hands=2, acc=15,
+        id="nu", label="弩", dura=48, kind="ranged", hands=2, acc=15,
         dmin=22, dmax=32, armor_eff=0.8, pierce=0.50, ap=4, br=10, br_tax=4,
         range=6, falloff=2,
         special=dict(type="aimed", label="瞄准", ap=6, br=14, acc_bonus=10, falloff=1)),
     "duandao": dict(  # 短刀
-        id="duandao", label="短刀", kind="melee", hands=1, acc=0,
+        id="duandao", label="短刀", dura=48, kind="melee", hands=1, acc=0,
         dmin=14, dmax=22, armor_eff=0.8, pierce=0.30, ap=4, br=10, br_tax=1),
 }
 

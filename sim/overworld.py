@@ -50,6 +50,7 @@ WAYLAY_INFAMY = {"caravan": 3, "patrol": 4}               # 官府闻之必怒 �
 INFAMY_PRICED = 3      # ≥: markets gouge (×1.5), the 镖单 thins to one offer
 INFAMY_HUNTED = 6      # ≥: no jobs at all, and the 缉捕官军 rides out
 ATONE_RATE = 40        # 两 per point of 恶名, paid at a city 衙门
+REPAIR_RATE = 3        # points of armor/edge made whole per 两 (city or town)
 SMITH_PRICE = {"liang": 100, "jing": 250, "zhen": 600, "shen": 1500}
 GEAR_SLOTS = ("wpn_q", "wpn2_q", "armor_q", "helmet_q")
 
@@ -385,6 +386,55 @@ def fail_contract(world):
     if world.contract:
         world.emit("contract_failed", job=world.contract)
         world.contract = None
+
+
+def battle_wear(world, battle_state):
+    """After a campaign battle the dents and dulled edges ride home: armor
+    damage accumulates, weapon durability carries, until the smith mends it."""
+    tpl = {p["id"]: p for p in data.ROSTER}
+    for uid, g in world.gear.items():
+        u = battle_state.by_id(uid)
+        if u is None:
+            continue
+        main_id = tpl[uid]["wpn"]
+        for w in (u.wpn, u.wpn2):
+            if w is None:
+                continue
+            key = "wpn_dura" if w["id"] == main_id else "wpn2_dura"
+            g[key] = w.get("dura_now")
+        g["armor_dmg"] = g.get("armor_dmg", 0) + (u.armor_b0 - u.armor_b)
+        g["helm_dmg"] = g.get("helm_dmg", 0) + (u.armor_h0 - u.armor_h)
+    world.emit("wear_taken")
+
+
+def repair_bill(world, uid):
+    """What the smith would charge to make this hero's kit whole."""
+    g = world.gear.get(uid)
+    if g is None:
+        return 0
+    pts = g.get("armor_dmg", 0) + g.get("helm_dmg", 0)
+    tpl = next(p for p in data.ROSTER if p["id"] == uid)
+    for key, wid in (("wpn_dura", tpl["wpn"]), ("wpn2_dura", tpl.get("wpn2"))):
+        if wid and g.get(key) is not None:
+            pts += data.WEAPONS[wid]["dura"] - g[key]
+    return -(-pts // REPAIR_RATE) if pts > 0 else 0
+
+
+def smith_repair(world, uid):
+    """修缮 (city or town): hammer the dents out, set the edge again."""
+    s = _trade_post(world)
+    if not s or s["kind"] not in ("city", "town") or uid not in world.gear:
+        return 0
+    bill = repair_bill(world, uid)
+    if bill <= 0 or world.gold < bill:
+        return 0
+    world.gold -= bill
+    g = world.gear[uid]
+    g["armor_dmg"] = g["helm_dmg"] = 0
+    g.pop("wpn_dura", None)
+    g.pop("wpn2_dura", None)
+    world.emit("repaired", hero=uid, cost=bill)
+    return bill
 
 
 def smith_upgrade(world, uid, slot):

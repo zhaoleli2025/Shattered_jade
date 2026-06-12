@@ -112,6 +112,15 @@ def exec_move(state, u, path, total_cost):
     state.emit("moved", unit=u.uid, to=u.pos())
 
 
+def _shot_wear(state, u):
+    """BB: bows and crossbows pay 2 durability per shot, hit or miss."""
+    if u.wpn["kind"] == "ranged" and u.wpn.get("dura_now") is not None:
+        before = u.wpn["dura_now"]
+        u.wpn["dura_now"] = max(0, before - 2)
+        if before > 0 and u.wpn["dura_now"] == 0:
+            state.emit("blunted", unit=u.uid, wpn=u.wpn["label"])
+
+
 def resolve(state, u, cmd):
     """Returns True if the command was legal and executed."""
     if state.over or not u.alive or u.morale == "Fleeing":
@@ -148,6 +157,7 @@ def resolve(state, u, cmd):
                 return False
             u.ap -= sp["ap"]
             u.breath -= sp["br"]
+            _shot_wear(state, u)
             landed = apply_hit(state, u, t, opts=opts)
             # 兜头 gamble: the overswing — a whiff drains extra Breath
             if not landed and opts.get("miss_br"):
@@ -160,6 +170,7 @@ def resolve(state, u, cmd):
             return False
         u.ap -= u.wpn["ap"]
         u.breath -= u.wpn["br"]
+        _shot_wear(state, u)
         apply_hit(state, u, t)
         return True
 

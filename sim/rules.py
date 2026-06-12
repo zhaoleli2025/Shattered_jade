@@ -127,6 +127,8 @@ def apply_hit(state, atk, dfn, is_free=False, opts=None):
         dmg = js_round(dmg * opts["mult"])
     if is_free and opts.get("half_dmg"):
         dmg = js_round(dmg * 0.5)
+    if atk.wpn.get("dura_now", 1) <= 0:      # 卷刃: the folded edge bites half
+        dmg = js_round(dmg * 0.5)
 
     part = "armor_h" if head else "armor_b"
     armor_before = getattr(dfn, part)
@@ -140,6 +142,16 @@ def apply_hit(state, atk, dfn, is_free=False, opts=None):
     state.emit("hit", atk=atk.uid, dfn=dfn.uid, chance=chance, roll=roll,
                head=head, dmg=dmg, armor_dmg=armor_dmg, hp_dmg=hp_dmg,
                free=is_free, tag=opts.get("tag"))
+
+    # BB durability: steel dulls on steel — a melee hit on a part still holding
+    # ≥50 armor grinds the edge; flesh costs nothing (the hit above used the
+    # edge as it was; the wear lands after the blow)
+    if (atk.wpn["kind"] == "melee" and armor_before >= 50
+            and atk.wpn.get("dura_now") is not None):
+        before = atk.wpn["dura_now"]
+        atk.wpn["dura_now"] = max(0, before - 3)
+        if before > 0 and atk.wpn["dura_now"] == 0:
+            state.emit("blunted", unit=atk.uid, wpn=atk.wpn["label"])
 
     if dfn.hp <= 0:
         kill(state, dfn, atk, opts.get("fear_mod", 0))

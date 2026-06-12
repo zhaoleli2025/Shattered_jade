@@ -17,9 +17,10 @@ from .ai import ai_turn
 from .commands import Stance, Strike, Swap, resolve, targets_of
 from .engine import run_battle
 from .hexmath import hex_dist
-from .overworld import (atone, camp, fail_contract, jobs, load_world,
-                        market_buy, plunder, raze, smith_upgrade, take_job,
-                        travel, waylay, dijkstra as wdijkstra, render as wrender)
+from .overworld import (atone, battle_wear, camp, fail_contract, jobs,
+                        load_world, market_buy, plunder, raze, repair_bill,
+                        smith_repair, smith_upgrade, take_job, travel, waylay,
+                        dijkstra as wdijkstra, render as wrender)
 from .pathfind import dijkstra
 from .rules import hit_breakdown
 from .state import load_scenario
@@ -147,13 +148,15 @@ def human_turn(state, u):
             say("  ? 输入 ? 看指令")
 
 
-def play_battle(scen_id, seed=0, gear=None):
+def play_battle(scen_id, seed=0, gear=None, world=None):
     s = load_scenario(scen_id, seed, gear=gear)
     say(f"\n════ {scen_id} · seed {seed} ════")
     r = run_battle(s, {"player": human_turn, "enemy": ai_turn})
     say("\n" + render(s))
     say(f"\n══ 战毕：{'镖局胜' if r['winner'] == 'player' else '敌胜' if r['winner'] == 'enemy' else '平'} · "
         f"{r['rounds']}回合 · 阵亡 {len(r['dead'])} · 溃走 {len(r['escaped'])} ══")
+    if world is not None:
+        battle_wear(world, s)              # the dents ride home
     return r["winner"]
 
 
@@ -163,6 +166,7 @@ WORLD_HELP = """\
   camp     扎营一日       assault   攻打脚下贼寨
   buy      市集买粮(补满)  jobs      看镖单
   take N   接第 N 单      smith 人 部位   铁匠铺升品 (如: smith wang wpn_q)
+  mend 人   修缮甲械（大城/州镇铁铺；如: mend wang）
   map      重看舆图       who       已发现的队伍
   raid N   劫掠身边的商队/巡骑（who 列表第 N 个）
   atone    在大城衙门交赎罪银，洗清恶名
@@ -213,7 +217,7 @@ def fight_encounter(w, pend_kind, target_id):
     if ask("开战 (y) / 脱离 (n) > ").lower() not in ("y", "yes", "战", ""):
         say("  且退一射之地。")
         return
-    winner = play_battle(scen, seed=w.day, gear=w.gear)
+    winner = play_battle(scen, seed=w.day, gear=w.gear, world=w)
     if winner == "player":
         if pend_kind == "assault":
             raze(w, target_id)
@@ -262,7 +266,7 @@ def play_campaign(world_id="hebei", seed=0):
             else:
                 e = w.events[-1]
                 say(f"  伏于道旁，劫{p.name}——【{e['scenario']}】")
-                winner = play_battle(e["scenario"], seed=w.day, gear=w.gear)
+                winner = play_battle(e["scenario"], seed=w.day, gear=w.gear, world=w)
                 if winner == "player":
                     pay = plunder(w, p.pid)
                     say(f"  得手！掠得{pay}两。官府闻之必怒。")
@@ -297,6 +301,12 @@ def play_campaign(world_id="hebei", seed=0):
                 say(f"  接下镖单：{job['name']}（{job['pay']}两）")
             else:
                 say("  接不了（已有在身镖单？）")
+        elif op == "mend" and len(toks) == 2:
+            bill = repair_bill(w, toks[1])
+            paid = smith_repair(w, toks[1])
+            say(f"  修缮完毕，费银{paid}两。" if paid
+                else (f"  无需修缮。" if bill == 0
+                      else f"  需{bill}两（银两不足，或不在城镇）。"))
         elif op == "smith" and len(toks) == 3:
             g = smith_upgrade(w, toks[1], toks[2])
             say(f"  打造完成：{toks[1]} {toks[2]} → {g}" if g
@@ -305,7 +315,7 @@ def play_campaign(world_id="hebei", seed=0):
             s = w.at_settlement()
             if s and s["kind"] == "stronghold" and s["id"] not in w.destroyed:
                 winner = play_battle(s.get("scenario", "gongzhai"), seed=w.day,
-                                     gear=w.gear)
+                                     gear=w.gear, world=w)
                 if winner == "player":
                     raze(w, s["id"])
                     say(f"  {s['name']}已荡平！")

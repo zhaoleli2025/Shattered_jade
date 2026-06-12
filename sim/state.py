@@ -154,11 +154,27 @@ def load_scenario(scen_id, seed=0, gear=None):
     dupes = sorted({i for i in ids if ids.count(i) > 1})
     if dupes:
         raise ValueError(f"scenario '{scen_id}': duplicate unit ids {dupes}")
+    QUALITY_KEYS = ("wpn_q", "wpn2_q", "armor_q", "helmet_q")
     units = []
     for su in spec["units"]:
+        cond = {}
         if gear and tpl_by_id[su["id"]]["side"] == "player" and su["id"] in gear:
-            su = {**su, **gear[su["id"]]}     # the smith's work rides to war
+            g = gear[su["id"]]
+            su = {**su, **{k: g[k] for k in QUALITY_KEYS if k in g}}
+            cond = g                          # the smith's work rides to war
         u = make_unit(tpl_by_id[su["id"]], *su["spawn"], overrides=su)
+        # ...and so do the dents and the dulled edges (campaign condition)
+        tpl = tpl_by_id[su["id"]]
+        for key, which in (("wpn_dura", "wpn"), ("wpn2_dura", "wpn2")):
+            w = u.wpn if which == "wpn" else u.wpn2
+            if w is not None and cond.get(key) is not None:
+                w["dura_now"] = min(cond[key], w["dura"])
+        if cond.get("armor_dmg"):
+            u.armor_b = max(0, u.armor_b - cond["armor_dmg"])
+            u.armor_b0 = u.armor_b
+        if cond.get("helm_dmg"):
+            u.armor_h = max(0, u.armor_h - cond["helm_dmg"])
+            u.armor_h0 = u.armor_h
         u.garrison = su.get("garrison")
         units.append(u)
     return BattleState(tiles=tiles_from_spec(spec["map"]), units=units,
@@ -222,6 +238,9 @@ def make_unit(tpl, q, r, overrides=None):
     wpn = grade_weapon(copy.deepcopy(data.WEAPONS[tpl["wpn"]]), gr["wpn_q"])
     wpn2 = (grade_weapon(copy.deepcopy(data.WEAPONS[tpl["wpn2"]]), gr["wpn2_q"])
             if tpl.get("wpn2") else None)
+    wpn["dura_now"] = wpn["dura"]            # the edge is fresh — for now
+    if wpn2:
+        wpn2["dura_now"] = wpn2["dura"]
     u = Unit(
         uid=tpl["id"], name=tpl["name"], glyph=tpl["glyph"], side=tpl["side"],
         q=sq, r=sr, hp_max=tpl["hp_max"], skill=tpl["skill"], dfn=tpl["dfn"],
