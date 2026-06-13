@@ -27,7 +27,7 @@ window.addEventListener("error", (e) => {
 
 /* ---------------- hex math (pointy-top axial, same as game.js) ---------------- */
 const SQRT3 = Math.sqrt(3);
-const HEX = 22; // big hexes: the board outgrows the screen — the camera pans over it
+let HEX = 22; // per-world hex radius (spec.hexSize); the board outgrows the screen — the camera pans over it
 const DIRS = [[1,0],[1,-1],[0,-1],[-1,0],[-1,1],[0,1]];
 const key = (q, r) => q + "," + r;
 const pOf = (k) => k.split(",").map(Number);
@@ -47,7 +47,7 @@ const MOVE_PER_DAY = 8;     // 官道 ~8 hexes/day, open country ~4
 const SIGHT = 3;            // hexes; +1 ending a step on hills
 // provisions are units now; the cap rides on the roster (see capacity)
 const CORE_ROSTER = ["wang", "liu", "shi", "yan"];
-const PROVISION_BASE = 4, CARRY_PER_HEAD = 2, EAT_PER_HEAD = 1, WAGE_PER_HEAD = 2;
+const PROVISION_BASE = 6, CARRY_PER_HEAD = 12, EAT_PER_HEAD = 1, WAGE_PER_HEAD = 2; // ~12 days of 粮草 per head (BB-style packs)
 /* ---- BB recruitment (faithful port of sim/recruit.py; gameplay parity) ---- */
 const R_SURNAMES = "赵钱孙李周吴郑王冯陈卫蒋沈韩杨朱秦许何吕张孔曹高石马苗凤花方俞任袁柳鲍史唐费岑薛雷贺倪汤殷罗毕郝安常乐于".split("");
 const R_GIVEN = "勇刚虎彪豹龙彦荣贵福禄寿山林川河海江云风雷电铁钢锐锋利胜忠义信仁孝雄威猛壮健安平定兴旺金玉珠宝栋梁柱石根本".split("");
@@ -80,17 +80,19 @@ const LEVEL_XP = [0, 0, 200, 550, 1050, 1750, 2700, 3950, 5550, 7550, 10000, 150
 const GROW = { hp:{per:[3,5],room:55}, breath:{per:[3,5],room:50}, skill:{per:[1,3],room:28},
                resolve:{per:[2,4],room:40}, init:{per:[2,4],room:40}, dfn:{per:[1,2],room:16} };
 const BATTLE_XP = 280, HERO_LEVEL = 3;
+/* the founding four are CHARACTERS too — own traits + star talents, like any hire */
 const HERO_BASE = {
-  wang: { stats:{hp:55,skill:62,dfn:10,resolve:48,init:96,breath:87}, talents:{skill:2} },
-  liu:  { stats:{hp:60,skill:60,dfn:6,resolve:45,init:104,breath:87}, talents:{skill:1,init:1} },
-  shi:  { stats:{hp:65,skill:58,dfn:5,resolve:50,init:90,breath:93}, talents:{hp:2} },
-  yan:  { stats:{hp:45,skill:56,dfn:8,resolve:42,init:112,breath:94}, talents:{init:2} },
+  wang: { stats:{hp:55,skill:62,dfn:10,resolve:48,init:96,breath:87}, talents:{skill:2}, traits:["hanyong","jianzhuang"] },
+  liu:  { stats:{hp:60,skill:60,dfn:6,resolve:45,init:104,breath:87}, talents:{skill:1,init:1}, traits:["hanyong","jiujiu"] },
+  shi:  { stats:{hp:65,skill:58,dfn:5,resolve:50,init:90,breath:93}, talents:{hp:2}, traits:["shenli","tiefei"] },
+  yan:  { stats:{hp:45,skill:56,dfn:8,resolve:42,init:112,breath:94}, talents:{init:2}, traits:["tiefei","jieao"] },
 };
 function levelForXp(xp){let l=1;for(let L=2;L<=MAX_LEVEL;L++)if(xp>=LEVEL_XP[L])l=L;return l;}
-function newProgress(base, talents, level){
+function newProgress(base, talents, level, traits){
   level = level || 1;
   return { level, xp: LEVEL_XP[level], stats: Object.assign({}, base),
-           base: Object.assign({}, base), talents: Object.assign({}, talents), revealed: [] };
+           base: Object.assign({}, base), talents: Object.assign({}, talents),
+           traits: (traits || []).slice(), revealed: [] };
 }
 const capOf = (p, a) => p.base[a] + GROW[a].room;
 const starsOf = (p, a) => p.talents[a] || 0;
@@ -156,24 +158,52 @@ function rcPool(settlement, day){
     : { tianong:4, tuihuo:1, liehu:2 };
   const keys = Object.keys(w), wts = keys.map((k)=>w[k]);
   const out = [];
-  for (let i=0;i<R_POOL;i++) out.push(rcGenerate(rng, rng.weighted(keys,wts), i));
+  for (let i=0;i<R_POOL;i++) {
+    const r = rcGenerate(rng, rng.weighted(keys,wts), i);
+    r.rid = `${settlement.id}:${epoch}:${r.rid}`;   // unique per place+epoch — no rid collisions
+    out.push(r);
+  }
   return out;
 }
-function headcount() { return CORE_ROSTER.length + world.members.length; }
-function capacity() { return PROVISION_BASE + CARRY_PER_HEAD * headcount(); }
+/* the founders still standing — the fallen don't come back (BB permadeath) */
+const livingCore = () => CORE_ROSTER.filter((id) => !world.fallen.has(id));
+function headcount() { return livingCore().length + world.members.length; }
+function capacity() { return PROVISION_BASE + CARRY_PER_HEAD * headcount() + PACK_CARRY * (world.packs || 0); }
 function dailyFood() { return EAT_PER_HEAD * headcount(); }
-function dailyWage() { return WAGE_PER_HEAD * CORE_ROSTER.length + world.members.reduce((s, m) => s + m.wage, 0); }
+function dailyWage() { return WAGE_PER_HEAD * livingCore().length + world.members.reduce((s, m) => s + m.wage, 0); }
+function companyWiped() { return livingCore().length === 0 && world.members.length === 0; }
 
 /* ---- the silver economy (M2, mirrors sim/overworld.py): markets, escorts, the smith ---- */
 const GOLD_START = 100;
 const PROVISION_PRICE = { city: 2, town: 2, village: 3 };  // 两 per day of 粮草
-const ESCORT_RATE = 40;                                    // 两 per road-day
-const BOUNTY_PAY = 260;                                    // 两 per razed lair
+const ESCORT_RATE = 48, ESCORT_BASE = 40;                  // 镖银 = 底银 + 每日脚程
+const BOUNTY_BASE = 180, BOUNTY_RATE = 44;                 // 破寨赏 scales with the trek to the 寨
+const HUNT_BASE = 120, HUNT_RATE = 36;                     // 剿匪赏: hunt a roaming band on the road
+const HUNTABLE = new Set(["bandit", "raider"]);            // bounty-able foes (not 官军 hunters)
 const QUALITY_LADDER = ["fan", "liang", "jing", "zhen", "shen"];
 const QUALITY_LABEL = { fan: "凡品", liang: "良品", jing: "精品", zhen: "珍品", shen: "神品" };
 const SMITH_PRICE = { liang: 100, jing: 250, zhen: 600, shen: 1500 };
 const GEAR_SLOTS = ["wpn_q", "wpn2_q", "armor_q", "helmet_q"];
 const SLOT_LABEL = { wpn_q: "兵", wpn2_q: "副", armor_q: "甲", helmet_q: "盔" };
+
+/* ---- BB-style settlement buildings (web map): 客栈 intel, 校场 drill, 马行 packs ---- */
+const INTEL_PRICE = 25;                   // 客栈: a rumor that pins the nearest hidden 寨
+const DRILL_TIERS = [                      // 校场: 银多则练得勤 — more silver buys more 经验
+  { key: "light", name: "操演", xp: 90,  per: 8 },
+  { key: "drill", name: "操练", xp: 200, per: 16 },
+  { key: "hard",  name: "苦练", xp: 420, per: 30 },
+];
+const drillCost = (tier, n) => tier.per * n;   // n = the heads put through the yard
+const PACK_CARRY = 12, PACK_MAX = 6;      // 马行: each 驮马 hauls +12 days of 粮草
+const packBill = (n) => 80 + 60 * n;      // the n-th 驮马 (0-indexed) costs more
+/* a settlement's building roster grows village → town → city (BB-style) */
+const BUILDINGS = { village: ["market", "inn", "recruit", "jobs"],
+                    town: ["market", "inn", "recruit", "jobs", "drill", "mend"],
+                    city: ["market", "inn", "recruit", "jobs", "drill", "mend",
+                           "smith", "stable", "yamen"] };
+const BUILDING_NAME = { market: "市集", inn: "客栈", recruit: "招募", jobs: "镖单",
+                        drill: "校场", mend: "修缮", smith: "铁匠铺", stable: "马行",
+                        yamen: "衙门" };
 
 /* player roster quality-slot defaults — replicated from game.js rosterTemplates()
    P(...) templates (sim load_world seeds gear from data.ROSTER the same way).
@@ -231,7 +261,8 @@ const sites = new Map();        // id -> spec entry (anchored set-pieces)
 const world = { day: 1, provisions: 12, party: null, infamy: 0,
                 members: [], progress: {},
                 parties: [], spotted: new Set(), destroyed: new Set(),
-                gold: GOLD_START, gear: {}, contract: null };
+                gold: GOLD_START, gear: {}, contract: null,
+                packs: 0, drillDay: 0, fallen: new Set() };
 let dij = null;                 // { costs, prev } from the column's hex
 let busy = false;               // a journey is animating
 let pendingScen = null;         // scenario behind the 开战 button
@@ -258,6 +289,7 @@ function saveState() {
       v: 2, day: world.day, provisions: world.provisions, party: world.party,
       infamy: world.infamy, members: world.members, progress: world.progress, gold2: true,
       gold: world.gold, gear: world.gear, contract: world.contract,
+      packs: world.packs, drillDay: world.drillDay, fallen: [...world.fallen],
       rngState, spotted: [...world.spotted], destroyed: [...world.destroyed],
       parties: world.parties.map((p) => ({ pid: p.pid, pos: p.pos, leg: p.leg, alive: p.alive })),
       pending: pendingBattle,
@@ -275,9 +307,18 @@ function restoreState() {
   world.members = Array.isArray(s.members) ? s.members.filter(
     (m) => m && typeof m.wage === "number" && m.name) : [];
   if (s.progress && typeof s.progress === "object") world.progress = s.progress;
+  for (const hid of CORE_ROSTER)                  // backfill traits onto pre-trait saves
+    if (world.progress[hid] && !(world.progress[hid].traits || []).length)
+      world.progress[hid].traits = (HERO_BASE[hid].traits || []).slice();
+  for (const m of world.members)                  // and onto restored hires
+    if (world.progress[m.rid] && !(world.progress[m.rid].traits || []).length)
+      world.progress[m.rid].traits = (m.traits || []).slice();
   world.party = s.party.slice();
   world.gold = s.gold;
   world.contract = s.contract || null;
+  world.packs = s.packs || 0;
+  world.drillDay = s.drillDay || 0;
+  world.fallen = new Set(s.fallen || []);
   rngState = s.rngState >>> 0;
   world.spotted = new Set(s.spotted);
   world.destroyed = new Set(s.destroyed);
@@ -288,6 +329,8 @@ function restoreState() {
   }
   pendingBattle = s.pending || null;
   const seeded = seedGear();                 // every hero present, grades legal
+  for (const m of world.members)             // hires are equippable — keep their gear too
+    if (!seeded[m.rid]) seeded[m.rid] = {};
   for (const uid of Object.keys(seeded)) {
     const sv = (s.gear || {})[uid] || {};
     for (const slot of GEAR_SLOTS) {
@@ -327,7 +370,7 @@ function applyBattleResult(resOverride) {
   if (!res) { try { res = JSON.parse(localStorage.getItem("sj_battle_result") || "null"); } catch (e) {} }
   if (!res || res.scenario !== pend.scenario) return;   // battle never fought
   try { localStorage.removeItem("sj_battle_result"); } catch (e) {}
-  for (const wu of res.wear || []) {                    // the dents ride home
+  for (const wu of res.wear || []) {                    // the dents ride home (survivors only)
     const g = world.gear[wu.id];
     if (!g) continue;
     g.armor_dmg = (g.armor_dmg || 0) + (wu.armorLost || 0);
@@ -337,6 +380,17 @@ function applyBattleResult(resOverride) {
       if (h && wd.base === h.wpnLabel) g.wpn_dura = wd.dura;
       else if (h && wd.base === h.wpn2Label) g.wpn2_dura = wd.dura;
     }
+  }
+  // hardcore (BB): the slain are struck from the roster — for good
+  for (const id of res.fallen || []) {
+    const isCore = CORE_ROSTER.includes(id);
+    const mi = world.members.findIndex((m) => m.rid === id);
+    if (!isCore && mi < 0) continue;                    // unknown id — ignore
+    log(`第${world.day}日 · 阵亡——${nameOf(id)}永远地倒下了。`, "r");
+    if (isCore) world.fallen.add(id);
+    if (mi >= 0) world.members.splice(mi, 1);
+    delete world.progress[id];
+    delete world.gear[id];
   }
   const win = res.winner === "player";
   if (win) {                                            // combat-fed leveling
@@ -376,15 +430,25 @@ function applyBattleResult(resOverride) {
     if (win) {
       if (p) p.alive = false;
       log(`第${world.day}日 · 镖队击溃${p ? p.name : "贼人"}，道路为之一清`, "b");
+      if (world.contract && world.contract.kind === "huntband"
+          && world.contract.target === pend.target) {     // 剿匪镖单功成
+        world.gold += world.contract.pay;
+        log(`第${world.day}日 · 剿匪功成——${world.contract.name}，赏银${world.contract.pay}两入账`, "b");
+        world.contract = null;
+      }
     } else {
       const b = retreatToFriendly();
       log(`第${world.day}日 · 战败溃走，退至${b ? b.name : "荒野"}`, "r");
       failContract();   // a lost battle voids the bond (sim fail_contract)
     }
   }
+  if (companyWiped()) {                                  // 全军覆没 — nobody left to march
+    world.contract = null;
+    log(`第${world.day}日 · 全军覆没——镖局烟消云散。按「重开」另起炉灶。`, "r");
+  }
 }
 let boardEl, logEl, overlayEl, hoverEl;
-let placeLayer, partyLayer, fxLayer;
+let placeLayer, partyLayer, fxLayer, contractLayer;
 let hoverPathEl = null;
 
 const tileCost = (k) => COST[tiles.get(k).terrain];
@@ -392,7 +456,7 @@ const tileCost = (k) => COST[tiles.get(k).terrain];
 /* ---------------- camera (BB/Bannerlord style: pan, edge-scroll, zoom) ----------------
    The viewBox is a window over the full board; scale = css px per board unit. */
 let BOARD_W = 0, BOARD_H = 0;
-const ZOOM_MIN = 0.5, ZOOM_MAX = 2.2;        // × base scale (base: 1 unit = 1 px)
+const ZOOM_MIN = 0.3, ZOOM_MAX = 2.2;        // × base scale (base: 1 unit = 1 px) — 0.3 fits the big enlarged board whole
 const EDGE_PX = 28, EDGE_STEP = 12, EDGE_MS = 40;
 const cam = { x: 0, y: 0, scale: 1 };
 let wrapEl = null;
@@ -448,6 +512,8 @@ function initCamera() {
     if (!edgeXY || dragLast || busy || !BOARD_W) return;
     if (document.getElementById("battleframe")
         || overlayEl.style.display === "flex") return;   // a modal owns the screen
+    const over = document.elementFromPoint(edgeXY[0], edgeXY[1]);  // not while reading a panel
+    if (over && over.closest && over.closest("#citypanel,#musterpanel,#inspector")) return;
     const r = wrapEl.getBoundingClientRect();
     const step = EDGE_STEP / cam.scale;
     let dx = 0, dy = 0;
@@ -505,6 +571,9 @@ function buildWorld() {
   world.gold = GOLD_START;
   world.gear = seedGear();   // the heroes ride out with their template gear
   world.contract = null;
+  world.packs = 0;           // 驮马 bought at the 马行 (raise 粮草 capacity)
+  world.drillDay = 0;        // last day the company drilled at a 校场
+  world.fallen = new Set();  // founders killed in battle never return (hardcore)
   for (const p of spec.parties || []) {
     if (!(p.kind in PARTY_GLYPH)) throw new Error(`队伍 ${p.id}：未知类别 ${p.kind}`);
     for (const wp of p.route || []) if (!settlements.has(wp)) throw new Error(`队伍 ${p.id}：未知途经 ${wp}`);
@@ -524,7 +593,7 @@ function buildWorld() {
   }
   for (const hid of CORE_ROSTER) {
     const h = HERO_BASE[hid];
-    world.progress[hid] = newProgress(h.stats, h.talents, HERO_LEVEL);
+    world.progress[hid] = newProgress(h.stats, h.talents, HERO_LEVEL, h.traits);
   }
 }
 
@@ -719,12 +788,25 @@ function cityJobs() {
   for (const d of dests) {
     const days = Math.max(1, Math.ceil(costs.get(key(d.at[0], d.at[1])) / MOVE_PER_DAY));
     out.push({ kind: "escort", to: d.id, name: `押镖至${d.name}`,
-               pay: days * ESCORT_RATE + 20, days });
+               pay: ESCORT_BASE + days * ESCORT_RATE, days });
   }
   for (const lair of settlements.values()) {
     if (lair.kind === "stronghold" && world.spotted.has(lair.id)
         && !world.destroyed.has(lair.id)) {
-      out.push({ kind: "bounty", target: lair.id, name: `剿灭${lair.name}`, pay: BOUNTY_PAY });
+      const lk = key(lair.at[0], lair.at[1]);
+      const days = costs.has(lk) ? Math.max(1, Math.ceil(costs.get(lk) / MOVE_PER_DAY)) : 1;
+      out.push({ kind: "bounty", target: lair.id, name: `攻破${lair.name}`,
+                 pay: BOUNTY_BASE + days * BOUNTY_RATE });
+    }
+  }
+  // 剿匪: a bounty on every known roaming band — defeat it in the field (not its 寨)
+  for (const p of world.parties) {
+    if (p.alive && HUNTABLE.has(p.kind) && world.spotted.has(p.pid)) {
+      const anchor = p.home || p.pos;
+      const ak = key(anchor[0], anchor[1]);
+      const days = costs.has(ak) ? Math.max(1, Math.ceil(costs.get(ak) / MOVE_PER_DAY)) : 2;
+      out.push({ kind: "huntband", target: p.pid, name: `剿灭${p.name}`,
+                 pay: HUNT_BASE + days * HUNT_RATE });
     }
   }
   return out;
@@ -749,8 +831,9 @@ function failContract() {
 /* 铁匠铺 (cities only): one hero's gear, one grade up the 品阶 ladder (smith_upgrade) */
 function smithUpgrade(uid, slot) {
   const s = tradePost();
-  if (!s || s.kind !== "city" || !GEAR_SLOTS.includes(slot) || !(uid in world.gear))
-    return null;
+  if (!s || s.kind !== "city" || !GEAR_SLOTS.includes(slot)
+      || !companyGearIds().includes(uid) || !world.gear[uid])
+    return null;                               // only the fighting company, not phantoms
   const cur = world.gear[uid][slot] || "fan";
   const i = QUALITY_LADDER.indexOf(cur) + 1;
   if (i >= QUALITY_LADDER.length) return null;
@@ -759,8 +842,7 @@ function smithUpgrade(uid, slot) {
   if (world.gold < price) return null;
   world.gold -= price;
   world.gear[uid][slot] = nxt;
-  const h = HEROES.find((t) => t.id === uid);
-  log(`第${world.day}日 · 铁匠铺升造：${h ? h.name : uid}之${SLOT_LABEL[slot]}升至` +
+  log(`第${world.day}日 · 铁匠铺升造：${nameOf(uid)}之${SLOT_LABEL[slot]}升至` +
       `${QUALITY_LABEL[nxt]}，费银${price}两`, "b");
   return nxt;
 }
@@ -826,6 +908,7 @@ function dusk() {
 /* hold position for a day (wait out a patrol; food still burns — buy at the 市集) */
 function doCamp() {
   if (busy) return;
+  if (companyWiped()) { log(`镖局已散——请按「重开」。`, "r"); return; }
   log(`第${world.day}日 · 就地扎营一日`, "sys");
   dusk();
   world.day += 1;
@@ -841,8 +924,13 @@ function applyRaze(lair) {
   if (world.contract && world.contract.kind === "bounty"
       && world.contract.target === lair.id) {
     world.gold += world.contract.pay;
-    log(`第${world.day}日 · 剿匪功成——${world.contract.name}，赏银${world.contract.pay}两入账`, "b");
+    log(`第${world.day}日 · 破寨功成——${world.contract.name}，赏银${world.contract.pay}两入账`, "b");
     world.contract = null;
+  }
+  // razing the den disbands its band — a 剿匪 bond on that band can't be filled
+  if (world.contract && world.contract.kind === "huntband") {
+    const tb = world.parties.find((p) => p.pid === world.contract.target);
+    if (tb && !tb.alive) failContract();
   }
 }
 
@@ -870,7 +958,8 @@ function launchBattle(pend) {
     f.style.cssText = "width:100%;height:100%;border:0;";
     const lv = battleLevels();
     const inject = `<script>window.__SJ_SCEN=${JSON.stringify(pend.scenario)};window.__SJ_CAMPAIGN=1;` +
-      `window.__SJ_GEAR=${JSON.stringify(world.gear)};window.__SJ_LEVELS=${JSON.stringify(lv)};<\/script>`;
+      `window.__SJ_GEAR=${JSON.stringify(world.gear)};window.__SJ_LEVELS=${JSON.stringify(lv)};` +
+      `window.__SJ_ROSTER=${JSON.stringify(battleRoster())};window.__SJ_ENEMY_SEED=${battleSeed(pend.scenario)};<\/script>`;
     f.srcdoc = EMBEDDED_BATTLE.replace("<script>", inject + "<script>");
     wrap.appendChild(f);
     document.body.appendChild(wrap);
@@ -878,6 +967,8 @@ function launchBattle(pend) {
     try {
       localStorage.setItem("sj_gear", JSON.stringify(world.gear));
       localStorage.setItem("sj_levels", JSON.stringify(battleLevels()));
+      localStorage.setItem("sj_roster", JSON.stringify(battleRoster()));
+      localStorage.setItem("sj_seed", String(battleSeed(pend.scenario)));
     } catch (e) {}
     location.href = "index.html?scenario=" + pend.scenario + "&campaign=1";
   }
@@ -886,6 +977,19 @@ function battleLevels() {
   const out = {};
   for (const cid of Object.keys(world.progress)) out[cid] = world.progress[cid].stats;
   return out;
+}
+/* the company that rides to war: the 3–4 core founders, then every hire — the
+   battle deploys THIS roster (not a scenario's fixed line), BB-style */
+function battleRoster() {
+  const out = livingCore().map((id) => ({ id }));   // the fallen never ride again
+  for (const m of world.members)
+    out.push({ id: m.rid, bg: m.bg, name: (m.nick ? m.nick + "·" : "") + m.name });
+  return out;
+}
+/* a per-encounter seed so a given fight's randomized warband is stable on reload */
+function battleSeed(scen) {
+  return ((world.day * 2654435761) ^ (world.party[0] * 40503) ^
+          (world.party[1] * 65537) ^ strSeed(scen || "")) >>> 0;
 }
 window.__sjBattleVerdict = (res) => { frameVerdict = res; };
 window.__sjCloseBattle = () => {
@@ -899,9 +1003,11 @@ window.__sjCloseBattle = () => {
 /* march day by day toward a hex; a hostile within reach — at departure or on
    any step — halts the column (sim/overworld.py travel(), animated per day) */
 async function travelTo(destK) {
+  if (companyWiped()) { log(`镖局已散——请按「重开」。`, "r"); return; }
   busy = true;
   drawerOpen = false;
   clearHexHover();
+  hideInspector();
   updateBar();
   const path = pathTo(dij.prev, destK);
   let i = 0;
@@ -974,15 +1080,26 @@ function buildBoard() {
   boardEl.setAttribute("viewBox", `0 0 ${w} ${h}`); // placeholder until applyCam
   boardEl.setAttribute("preserveAspectRatio", "xMidYMid slice");
   const tileLayer = svgEl("g");
+  // event delegation: one set of listeners for the whole grid — the enlarged
+  // board has thousands of hexes, far too many for per-tile handlers
+  tileLayer.addEventListener("click", (e) => {
+    const k = e.target.dataset && e.target.dataset.k;
+    if (k) onHexClick(k);
+  });
+  tileLayer.addEventListener("mouseover", (e) => {
+    const k = e.target.dataset && e.target.dataset.k;
+    if (k) onHexHover(k);
+  });
+  tileLayer.addEventListener("mouseout", (e) => {
+    const k = e.target.dataset && e.target.dataset.k;
+    if (k) clearHexHover();
+  });
   for (const t of tiles.values()) {
     const { x, y } = hexToPix(t.q, t.r);
     const p = svgEl("polygon", { points: hexPoints(x, y), class: "hex",
                                  fill: TERRAIN_FILL[t.terrain] });
     const k = key(t.q, t.r);
     p.dataset.k = k;
-    p.addEventListener("click", () => onHexClick(k));
-    p.addEventListener("mouseenter", () => onHexHover(k));
-    p.addEventListener("mouseleave", () => clearHexHover());
     tileLayer.appendChild(p);
     if (TERRAIN_GLYPH[t.terrain]) {
       const tx = svgEl("text", { x, y: y + 3.5, class: "tglyph",
@@ -1018,26 +1135,33 @@ function buildBoard() {
   boardEl.appendChild(siteLayer);
   placeLayer = svgEl("g", { "pointer-events": "none" });
   fxLayer = svgEl("g", { "pointer-events": "none" });
+  contractLayer = svgEl("g", { "pointer-events": "none" });
   partyLayer = svgEl("g", { "pointer-events": "none" });
   boardEl.appendChild(placeLayer);
   boardEl.appendChild(fxLayer);
+  boardEl.appendChild(contractLayer);
   boardEl.appendChild(partyLayer);
 }
 
 /* settlements — hidden lairs invisible until spotted, razed lairs are ruins 墟 */
 function renderPlaces() {
   placeLayer.innerHTML = "";
+  const ms = HEX / 22;                              // markers scale with the hex
   for (const s of settlements.values()) {
     if (s.hidden && !world.spotted.has(s.id)) continue;
     const { x, y } = hexToPix(s.at[0], s.at[1]);
     const razed = world.destroyed.has(s.id);
-    placeLayer.appendChild(svgEl("circle", { cx: x, cy: y, r: 8,
-      fill: razed ? "#8a8170" : KIND_FILL[s.kind], stroke: "#1d1a15", "stroke-width": 1 }));
-    const g = svgEl("text", { x, y: y + 3.5, class: "glyph",
+    const c = svgEl("circle", { cx: x, cy: y, r: 8 * ms,
+      fill: razed ? "#8a8170" : KIND_FILL[s.kind], stroke: "#1d1a15", "stroke-width": 1 });
+    c.setAttribute("pointer-events", "auto");      // click a place to read it
+    c.style.cursor = "pointer";
+    c.addEventListener("click", (e) => { if (dragMoved <= 5) inspectSettlement(s.id, e); });
+    placeLayer.appendChild(c);
+    const g = svgEl("text", { x, y: y + 3.5 * ms, class: "glyph",
       "font-size": s.kind === "city" || s.kind === "town" ? 11 : 9.5 });
     g.textContent = razed ? "墟" : KIND_GLYPH[s.kind];
     placeLayer.appendChild(g);
-    const lb = svgEl("text", { x, y: y + 17.5, class: "plabel" });
+    const lb = svgEl("text", { x, y: y + 17.5 * ms, class: "plabel" });
     lb.textContent = s.name;
     placeLayer.appendChild(lb);
   }
@@ -1049,31 +1173,201 @@ const WAYLAY_LOOT = { caravan: 150, patrol: 60 };
 
 function renderParties() {
   partyLayer.innerHTML = "";
+  const ms = HEX / 22;                              // markers scale with the hex
   for (const p of world.parties) {
     if (!p.alive || !world.spotted.has(p.pid)) continue;
     const { x, y } = hexToPix(p.pos[0], p.pos[1]);
     const preyable = !busy && p.kind in WAYLAY_SCEN
       && hexDist(p.pos, world.party) <= 1;
-    const c = svgEl("circle", { cx: x, cy: y, r: 6.5,
+    const c = svgEl("circle", { cx: x, cy: y, r: 6.5 * ms,
       fill: PARTY_FILL[p.kind], stroke: preyable ? "#e8c14f" : "#1d1a15",
       "stroke-width": preyable ? 2 : 1 });
-    if (preyable) {
-      c.setAttribute("pointer-events", "auto");
-      c.style.cursor = "pointer";
-      c.addEventListener("click", () => offerWaylay(p));
-    }
+    c.setAttribute("pointer-events", "auto");        // click any party to read it
+    c.style.cursor = "pointer";
+    c.addEventListener("click", (e) => { if (dragMoved <= 5) inspectParty(p.pid, e); });
     partyLayer.appendChild(c);
-    const g = svgEl("text", { x, y: y + 2.8, class: "glyph", "font-size": 8 });
+    const g = svgEl("text", { x, y: y + 2.8 * ms, class: "glyph", "font-size": 8 });
     g.textContent = PARTY_GLYPH[p.kind];
     partyLayer.appendChild(g);
   }
   const { x, y } = hexToPix(world.party[0], world.party[1]);
-  partyLayer.appendChild(svgEl("circle", { cx: x, cy: y, r: 8.5,
-    fill: "#1b4965", stroke: "#b8860b", "stroke-width": 2 }));
-  const g = svgEl("text", { x, y: y + 3.3, class: "glyph", "font-size": 9.5 });
+  const pc = svgEl("circle", { cx: x, cy: y, r: 8.5 * ms,
+    fill: "#1b4965", stroke: "#b8860b", "stroke-width": 2 });
+  pc.setAttribute("pointer-events", "auto");         // click the 镖 dot to read the column
+  pc.style.cursor = "pointer";
+  pc.addEventListener("click", (e) => { if (dragMoved <= 5) inspectPlayer(e); });
+  partyLayer.appendChild(pc);
+  const g = svgEl("text", { x, y: y + 3.3 * ms, class: "glyph", "font-size": 9.5 });
   g.textContent = "镖";
   partyLayer.appendChild(g);
+  renderContract();                          // the active 镖单, captioned on the map
 }
+
+/* the accepted 镖单 drawn onto the map: a caption banner + a marked target & a
+   dashed line from the column to it (escort 城镇 / 破寨 山寨 / 剿匪 the band) */
+function renderContract() {
+  if (contractLayer) contractLayer.innerHTML = "";
+  const cap = document.getElementById("contractcap");
+  if (!world.contract) { if (cap) cap.style.display = "none"; return; }
+  const c = world.contract;
+  let pos = null, where = "";
+  if (c.kind === "escort") {
+    const s = settlements.get(c.to); if (s) { pos = s.at; where = "→ " + s.name; }
+  } else if (c.kind === "bounty") {
+    const s = settlements.get(c.target);
+    if (s && (!s.hidden || world.spotted.has(s.id))) { pos = s.at; where = "→ " + s.name; }
+  } else if (c.kind === "huntband") {
+    const p = world.parties.find((x) => x.pid === c.target && x.alive);
+    if (p && world.spotted.has(p.pid)) { pos = p.pos; where = "→ " + p.name; }
+  }
+  if (cap) {                                 // always-visible caption (survives panning)
+    let hint = where;
+    if (pos && dij) {
+      const k = key(pos[0], pos[1]);
+      if (dij.costs.has(k)) hint += ` · 约${daysAlong(pathTo(dij.prev, k))}日`;
+    }
+    cap.innerHTML = `<b>镖单</b> ${c.name} <span style="opacity:.85">${hint}` +
+      `（酬${c.pay != null ? c.pay : "—"}两）</span>`;
+    cap.style.display = "block";
+  }
+  if (!pos || !contractLayer) return;        // target not yet locatable on the map
+  const t = hexToPix(pos[0], pos[1]), me = hexToPix(world.party[0], world.party[1]);
+  contractLayer.appendChild(svgEl("line", { x1: me.x, y1: me.y, x2: t.x, y2: t.y,
+    stroke: "rgba(184,134,11,.55)", "stroke-width": 2, "stroke-dasharray": "8 6",
+    "stroke-linecap": "round" }));
+  const ms = HEX / 22, r = 13 * ms;
+  contractLayer.appendChild(svgEl("circle", { cx: t.x, cy: t.y, r, fill: "none",
+    stroke: "#b8860b", "stroke-width": 2.5, opacity: 0.9 }));
+  const flag = svgEl("text", { x: t.x, y: t.y - r - 3, class: "glyph",
+    "font-size": 13 * ms, fill: "#b8860b" });
+  flag.textContent = "✦"; contractLayer.appendChild(flag);
+  const lb = svgEl("text", { x: t.x, y: t.y + r + 12 * ms, class: "plabel",
+    "font-size": 11 * ms, fill: "#7a5c12" });
+  lb.textContent = "镖单·" + c.name; contractLayer.appendChild(lb);
+}
+
+/* ---------------- the unit inspector (click a 城/寨/商旅/巡骑/镖队 to read it) ---------------- */
+let inspectEl = null;
+const KIND_READ = { city: "州城", town: "军镇", village: "村镇",
+                    stronghold: "山寨", occupied: "辽占" };
+const PARTY_READ = { bandit: "绿林匪伙", caravan: "行商车队", patrol: "官军巡骑",
+                     raider: "契丹游骑", hunter: "缉捕官军" };
+
+function hideInspector() {
+  if (!inspectEl) inspectEl = document.getElementById("inspector");
+  if (inspectEl) { inspectEl.style.display = "none"; inspectEl.innerHTML = ""; }
+}
+window.hideInspector = hideInspector;
+
+/* float the card near the click, clamped inside the board pane */
+function showInspectorAt(html, ev) {
+  if (!inspectEl) inspectEl = document.getElementById("inspector");
+  if (!inspectEl) return;
+  inspectEl.innerHTML = html;
+  inspectEl.style.display = "block";
+  const wrap = document.getElementById("boardwrap");
+  const wr = wrap.getBoundingClientRect();
+  const ir = inspectEl.getBoundingClientRect();
+  let x = (ev ? ev.clientX - wr.left : 24) + 14;
+  let y = (ev ? ev.clientY - wr.top : 24) + 10;
+  x = Math.max(6, Math.min(Math.max(6, wr.width - ir.width - 6), x));
+  y = Math.max(6, Math.min(Math.max(6, wr.height - ir.height - 6), y));
+  inspectEl.style.left = x.toFixed(0) + "px";
+  inspectEl.style.top = y.toFixed(0) + "px";
+}
+
+function inspHead(name, tag) {
+  return `<div class="ihead"><span class="iname">${name}</span>` +
+    (tag ? `<span class="itag">${tag}</span>` : "") +
+    `<span class="iclose" onclick="hideInspector()" title="关闭">×</span></div>`;
+}
+
+function inspectSettlement(id, ev) {
+  const s = settlements.get(id);
+  if (!s) return;
+  const razed = world.destroyed.has(id);
+  const here = samePos(s.at, world.party);
+  const k = key(s.at[0], s.at[1]);
+  const reachable = dij && dij.costs.has(k) && !here;
+  let rows = `<div class="irow">${razed ? "已荡平的废墟（墟）" : (KIND_READ[s.kind] || s.kind)}` +
+    (s.fanzhen ? ` · <b>${s.fanzhen}</b>` : "") + `</div>`;
+  if (s.kind === "stronghold" && !razed)
+    rows += `<div class="irow">绿林贼巢——破之，余匪作鸟兽散</div>`;
+  if (s.kind === "occupied" && !razed)
+    rows += `<div class="irow">辽人占据，市集不纳外客</div>`;
+  if (here) rows += `<div class="irow">镖队正驻此地</div>`;
+  else if (reachable) {
+    const cost = dij.costs.get(k), days = daysAlong(pathTo(dij.prev, k));
+    rows += `<div class="irow">路程 <b>${cost}</b> 移动力 · 约 <b>${days}</b> 日` +
+      (days > world.provisions ? `<br><b style="color:#e0a07a">⚠ 粮草不济</b>` : "") + `</div>`;
+  } else rows += `<div class="irow">大河层峦相隔，暂不可达</div>`;
+  if (FRIENDLY_KINDS.has(s.kind) && !razed) {
+    let price = PROVISION_PRICE[s.kind];
+    if (world.infamy >= INFAMY_PRICED) price += (price + 1) >> 1;
+    rows += `<div class="irow">市集粮价 <b>${price}</b> 两/份` +
+      (s.kind === "city" ? " · 城内有铁匠铺" : "") + `</div>`;
+  }
+  let acts = "";
+  if (reachable && !busy) acts += `<button onclick="uiGoTo('${k}')">前往此地</button>`;
+  if (here && tradePost() && !busy) acts += `<button onclick="hideInspector();uiTown()">入城</button>`;
+  if (here && s.kind === "stronghold" && !razed && world.spotted.has(id) && !busy)
+    acts += `<button class="prey" onclick="hideInspector();doAssault()">攻寨</button>`;
+  if (acts) rows += `<div class="iacts">${acts}</div>`;
+  showInspectorAt(inspHead(razed ? s.name + "·墟" : s.name, KIND_GLYPH[s.kind]) + rows, ev);
+}
+
+function inspectParty(pid, ev) {
+  const p = world.parties.find((x) => x.pid === pid);
+  if (!p || !p.alive) return;
+  const hostile = HOSTILE.has(p.kind);
+  const dist = hexDist(p.pos, world.party);
+  const preyable = !busy && p.kind in WAYLAY_SCEN && dist <= 1;
+  let rows = `<div class="irow">${PARTY_READ[p.kind] || p.kind} · ` +
+    (hostile ? '<b style="color:#e0a07a">敌</b>' : '<b style="color:#9ec9a0">非敌</b>') + `</div>`;
+  rows += `<div class="irow">脚力 <b>${p.speed}</b> 格/日 · 距镖队 <b>${dist}</b> 格</div>`;
+  if (p.kind === "bandit") {
+    const home = p.home ? settlementAt(p.home) : null;
+    rows += `<div class="irow">巢穴 ${home ? home.name : "山中"}，游弋 ${p.prowl} 格</div>`;
+  } else if (p.route && p.route.length) {
+    const names = [...new Set(p.route.map((rid) => {
+      const s = settlements.get(rid); return s ? s.name : rid; }))];
+    rows += `<div class="irow">巡行 ${names.join("→")}</div>`;
+  }
+  if (hostile && dist <= 1)
+    rows += `<div class="irow" style="color:#e0a07a">已贴身——扎营或出发即开战</div>`;
+  else if (preyable)
+    rows += `<div class="irow">可伏击劫道（官府闻之必怒，恶名+）</div>`;
+  if (preyable)
+    rows += `<div class="iacts"><button class="prey" onclick="uiWaylay('${pid}')">劫道</button></div>`;
+  showInspectorAt(inspHead(p.name, PARTY_GLYPH[p.kind]) + rows, ev);
+}
+
+function inspectPlayer(ev) {
+  const here = settlementAt(world.party);
+  let rows = `<div class="irow">第 <b>${world.day}</b> 日 · 现驻 <b>${locName(world.party)}</b>` +
+    (here && here.fanzhen && (!here.hidden || world.spotted.has(here.id)) ? `（${here.fanzhen}）` : "") + `</div>`;
+  rows += `<div class="irow">粮草 <b>${world.provisions}/${capacity()}</b> · 银两 <b>${world.gold}</b>` +
+    (world.infamy ? ` · 恶名 <b style="color:#e0a07a">${world.infamy}</b>` : "") + `</div>`;
+  rows += `<div class="irow">在册 <b>${headcount()}</b> 人 · 日耗粮 ${dailyFood()} · 日饷 ${dailyWage()} 两</div>`;
+  const lv = [];
+  for (const hid of livingCore()) {
+    const pr = world.progress[hid];
+    if (pr) lv.push(`${(HEROES.find((h) => h.id === hid) || {}).name || hid} Lv${pr.level}`);
+  }
+  if (lv.length) rows += `<div class="irow" style="font-size:11.5px;color:#c9bda0">${lv.join(" · ")}</div>`;
+  if (world.members.length)
+    rows += `<div class="irow" style="font-size:11.5px;color:#c9bda0">部曲 ${world.members.length} 人随征</div>`;
+  if (world.contract) rows += `<div class="irow">镖单：<b>${world.contract.name}</b></div>`;
+  rows += `<div class="iacts"><button onclick="hideInspector();uiMuster()">校阅花名册</button></div>`;
+  showInspectorAt(inspHead("镖队", "镖") + rows, ev);
+}
+
+window.uiGoTo = (k) => { hideInspector(); travelTo(k); };
+window.uiWaylay = (pid) => {
+  const p = world.parties.find((x) => x.pid === pid);
+  hideInspector();
+  if (p) offerWaylay(p);
+};
 
 function refresh() {
   saveState();
@@ -1109,10 +1403,13 @@ function updateBar() {
     (s0 && s0.fanzhen && (!s0.hidden || world.spotted.has(s0.id)) ? `（${s0.fanzhen}）` : "");
   const tb = document.getElementById("townbtn");
   const post = tradePost();
-  tb.style.display = post && !busy && !drawerOpen ? "inline-block" : "none";
+  tb.style.display = post && !busy && !drawerOpen && !musterOpen ? "inline-block" : "none";
   tb.textContent = drawerOpen ? "出城 ▸" : "入城 ◂";
   if (!post) drawerOpen = false;
   renderCity();
+  renderMuster();
+  const mb = document.getElementById("musterbtn");
+  if (mb) mb.disabled = busy;
   const s = settlementAt(world.party);
   const lair = s && s.kind === "stronghold" && !world.destroyed.has(s.id) && world.spotted.has(s.id);
   document.getElementById("assault").style.display = lair && !busy ? "" : "none";
@@ -1122,6 +1419,50 @@ function updateBar() {
 /* the town drawer: a folder tree on the right — 城 ▸ 市集 / 镖单 / 铁匠铺 ▸ 各人 */
 let drawerOpen = false;
 
+/* ---- the company armoury: the smith & 修缮 tend the people who actually fight ----
+   (founders + hires), not the phantom assault-roster heroes who never deploy */
+const BG_SIDEARM = new Set(["liehu"]);       // only the 猎户 hire carries a 副 (匕首)
+function companyGearIds() { return livingCore().concat(world.members.map((m) => m.rid)); }
+function hasSidearm(id) {
+  const h = HEROES.find((x) => x.id === id);
+  if (h) return !!h.wpn2;
+  const m = world.members.find((x) => x.rid === id);
+  return m ? BG_SIDEARM.has(m.bg) : false;
+}
+function gearSlotsForId(id) {
+  return GEAR_SLOTS.filter((slot) => slot !== "wpn2_q" || hasSidearm(id));
+}
+/* dent points on a member's gear (hires take no weapon-dura wear — no base dura) */
+function gearWearPts(id) {
+  const g = world.gear[id] || {}, h = HEROES.find((x) => x.id === id);
+  let pts = (g.armor_dmg || 0) + (g.helm_dmg || 0);
+  if (h && g.wpn_dura != null) pts += (h.wpnDura || 0) - g.wpn_dura;
+  if (h && g.wpn2_dura != null) pts += (h.wpn2Dura || 0) - g.wpn2_dura;
+  return Math.max(0, pts);
+}
+
+/* the named hidden 寨 nearest the column, still unspotted — what the 客栈 sells */
+function nearestHiddenLair() {
+  let best = null, bd = Infinity;
+  for (const s of settlements.values()) {
+    if (s.kind === "stronghold" && s.hidden && !world.spotted.has(s.id)
+        && !world.destroyed.has(s.id)) {
+      const d = hexDist(s.at, world.party);
+      if (d < bd) { bd = d; best = s; }
+    }
+  }
+  return best;
+}
+/* every soul here who can still grow — founders AND hires alike (校场 trains all) */
+function drillTrainees() {
+  return livingCore().concat(world.members.map((m) => m.rid))
+    .filter((id) => world.progress[id] && world.progress[id].level < MAX_LEVEL);
+}
+const nameOf = (id) => (HEROES.find((h) => h.id === id) || {}).name ||
+  (world.members.find((m) => m.rid === id) || {}).name || id;
+
+/* the settlement drawer: BB-style — a building roster that grows village→town→city,
+   each 坊 a folded function. 校阅 has moved OUT (a roving review, see renderMuster) */
 function renderCity() {
   const el = document.getElementById("citypanel");
   const s = tradePost();
@@ -1129,43 +1470,49 @@ function renderCity() {
   const open = new Set([...el.querySelectorAll("details[open]")].map((d) => d.dataset.k));
   if (!el.innerHTML) { open.add("market"); open.add("jobs"); }   // first opening
   const o = (k, dflt) => (el.innerHTML ? open.has(k) : dflt) ? " open" : "";
-  let price = PROVISION_PRICE[s.kind];
-  if (world.infamy >= INFAMY_PRICED) price += (price + 1) >> 1;  // shown as charged
-  const need = capacity() - world.provisions;
-  const canBuy = Math.max(0, Math.min(need, Math.floor(world.gold / price)));
+  const blds = BUILDINGS[s.kind] || BUILDINGS.village;
+  const has = (k) => blds.includes(k);
   let html = `<button onclick="uiTown()" style="float:right">出城 ▸</button>` +
              `<b>${s.name}</b>${s.fanzhen ? `（${s.fanzhen}）` : ""}` +
-             ` <span style="color:#c9bda0">银两 ${world.gold}</span>`;
-  html += `<details data-k="market"${o("market", true)}><summary>市集</summary>` +
-          `<div class="leaf">粮草 ${world.provisions}/${capacity()} · ${price}两/份<br>` +
-          `<button onclick="uiBuy()" ${canBuy ? "" : "disabled"}>` +
-          (canBuy ? `买粮${canBuy}日 · ${canBuy * price}两`
-                  : need ? "银两不足" : "粮草已满") + `</button></div></details>`;
-  // 校阅: the roster's standing — level, xp, and stat/cap with revealed stars
-  {
-    let rrows = "";
-    const line = (cid, label) => {
-      const p = world.progress[cid]; if (!p) return "";
-      const stat = R_ATTRS.map((a) => `${R_ANAME[a]}${p.stats[a]}/${capOf(p,a)}` +
-        (p.revealed.includes(a) ? "★".repeat(starsOf(p,a)) : "")).join(" ");
-      const tn = p.level >= MAX_LEVEL ? "满" : (LEVEL_XP[p.level+1] - p.xp) + "经验";
-      return `<div class="leaf" style="font-size:11px"><b>${label}</b> Lv${p.level}（${tn}）<br>${stat}</div>`;
-    };
-    for (const hid of CORE_ROSTER) rrows += line(hid, hid);
-    for (const m of world.members) rrows += line(m.rid, (m.nick?m.nick+"·":"") + m.name);
-    html += `<details data-k="muster"${o("muster", false)}><summary>校阅</summary>${rrows}</details>`;
+             ` <span style="color:#c9bda0">银两 ${world.gold}</span>` +
+             `<div style="color:#9a907a;font-size:11px;margin:1px 0 4px">` +
+             `${KIND_READ[s.kind] || s.kind} · ${blds.length}坊</div>`;
+
+  if (has("market")) {                       // 市集 — provisions for silver
+    let price = PROVISION_PRICE[s.kind];
+    if (world.infamy >= INFAMY_PRICED) price += (price + 1) >> 1;
+    const need = capacity() - world.provisions;
+    const canBuy = Math.max(0, Math.min(need, Math.floor(world.gold / price)));
+    html += `<details data-k="market"${o("market", true)}><summary>市集</summary>` +
+            `<div class="leaf">粮草 ${world.provisions}/${capacity()} · ${price}两/份<br>` +
+            `<button onclick="uiBuy()" ${canBuy ? "" : "disabled"}>` +
+            (canBuy ? `买粮${canBuy}日 · ${canBuy * price}两`
+                    : need ? "银两不足" : "粮草已满") + `</button></div></details>`;
   }
-  html += `<details data-k="jobs"${o("jobs", true)}><summary>镖单</summary>`;
-  const board = cityJobs();
-  if (!board.length) html += `<div class="leaf">暂无镖单</div>`;
-  board.forEach((jb, i) => {
-    html += `<div class="job leaf"><span>${jb.name} · ${jb.pay}两</span>` +
-            `<button onclick="uiTake(${i})" ${world.contract ? "disabled" : ""}>接单</button></div>`;
-  });
-  if (world.contract) html += `<div class="leaf" style="color:#c9bda0">在身：${world.contract.name}</div>`;
-  html += `</details>`;
-  // 招募: the named candidates this place is mustering (BB pool + reveal)
-  {
+
+  if (has("inn")) {                          // 客栈 — a rumor pins the nearest hidden 寨
+    const lair = nearestHiddenLair();
+    html += `<details data-k="inn"${o("inn", false)}><summary>客栈</summary><div class="leaf">` +
+            (lair
+              ? `酒客行旅，似知贼巢去向。<br>` +
+                `<button onclick="uiIntel()" ${world.gold < INTEL_PRICE ? "disabled" : ""}>` +
+                `打探消息 ${INTEL_PRICE}两</button>`
+              : `境内贼巢已探明，再无风声可买。`) + `</div></details>`;
+  }
+
+  if (has("jobs")) {                         // 镖单 — escorts & bounties
+    html += `<details data-k="jobs"${o("jobs", true)}><summary>镖单</summary>`;
+    const board = cityJobs();
+    if (!board.length) html += `<div class="leaf">暂无镖单</div>`;
+    board.forEach((jb, i) => {
+      html += `<div class="job leaf"><span>${jb.name} · ${jb.pay}两</span>` +
+              `<button onclick="uiTake(${i})" ${world.contract ? "disabled" : ""}>接单</button></div>`;
+    });
+    if (world.contract) html += `<div class="leaf" style="color:#c9bda0">在身：${world.contract.name}</div>`;
+    html += `</details>`;
+  }
+
+  if (has("recruit")) {                      // 招募 — the candidates this place musters
     let rrows = "";
     for (const r of recruitsHere()) {
       const tr = r.reveal >= 1
@@ -1179,43 +1526,42 @@ function renderCity() {
                `<button onclick="uiHire('${r.rid}')" ${world.gold < r.fee ? "disabled":""}>招 ${r.fee}·饷${r.wage}</button></div>` +
                `<div class="leaf" style="font-size:11px;color:#b3a98c">特性：${tr}　天赋：${tl}</div>`;
     }
-    world.members.forEach((m, i) => {
-      rrows += `<div class="job leaf"><span>${m.nick ? m.nick+"·" : ""}${m.name}（${m.bg_name||""} 饷${m.wage}）</span>` +
-               `<button onclick="uiFire(${i})">遣散</button></div>`;
-    });
-    html += `<details data-k="recruit"${o("recruit", false)}><summary>招募 · 在册${headcount()}人</summary>${rrows}</details>`;
+    if (!rrows) rrows = `<div class="leaf">此地暂无可募之人。</div>`;   // hired ones leave the board
+    html += `<details data-k="recruit"${o("recruit", false)}><summary>招募 · 可募${recruitsHere().length}人</summary>${rrows}</details>`;
   }
-  if (s.kind === "city" || s.kind === "town") {
+
+  if (has("drill")) {                        // 校场 — paid sparring lifts the WHOLE company
+    const crew = drillTrainees(), drilled = world.drillDay === world.day;
+    let body;
+    if (!crew.length) body = `全队已至顶级，无需操练。`;
+    else if (drilled) body = `今日已操练，明日再来。`;
+    else body = `演武操练全队 ${crew.length} 人（银多则练得勤）：<br>` +
+      DRILL_TIERS.map((t) => { const c = drillCost(t, crew.length);
+        return `<button onclick="uiDrill('${t.key}')" ${world.gold < c ? "disabled" : ""}>` +
+               `${t.name}·各+${t.xp}·${c}两</button>`; }).join(" ");
+    html += `<details data-k="drill"${o("drill", false)}><summary>校场</summary><div class="leaf">${body}</div></details>`;
+  }
+
+  if (has("mend")) {                         // 修缮 — mend the company's dented gear
     let rows = "";
-    for (const h of HEROES) {
-      if (!h.smith) continue;
-      const g = world.gear[h.id] || {};
-      let pts = (g.armor_dmg || 0) + (g.helm_dmg || 0);
-      if (g.wpn_dura != null) pts += (h.wpnDura || 0) - g.wpn_dura;
-      if (g.wpn2_dura != null) pts += (h.wpn2Dura || 0) - g.wpn2_dura;
+    for (const id of companyGearIds()) {
+      const pts = gearWearPts(id);
       if (pts <= 0) continue;
       const bill = Math.ceil(pts / 3);
-      rows += `<div class="job"><span>${h.name} 甲械损${pts}点</span>` +
-              `<button onclick="uiMend('${h.id}')" ${world.gold < bill ? "disabled" : ""}>修缮 ${bill}两</button></div>`;
+      rows += `<div class="job"><span>${nameOf(id)} 甲械损${pts}点</span>` +
+              `<button onclick="uiMend('${id}')" ${world.gold < bill ? "disabled" : ""}>修缮 ${bill}两</button></div>`;
     }
-    if (rows) html += `<details data-k="mend" open><summary>修缮</summary>${rows}</details>`;
+    html += `<details data-k="mend" open><summary>修缮</summary>` +
+            (rows || `<div class="leaf">甲械俱全，无需修缮。</div>`) + `</details>`;
   }
-  if (s.kind === "city" && world.infamy > 0) {
-    const cost = world.infamy * ATONE_RATE;
-    html += `<details data-k="yamen" open><summary>衙门</summary>` +
-            `<div class="leaf">恶名 ${world.infamy} · 海捕${world.infamy >= INFAMY_HUNTED ? "已发" : "未发"}<br>` +
-            `<button onclick="uiAtone()" ${world.gold < cost ? "disabled" : ""}>` +
-            `纳赎罪银 ${cost}两</button></div></details>`;
-  }
-  if (s.kind === "city") {
+
+  if (has("smith")) {                        // 铁匠铺 — raise the company's gear up the 品阶 ladder
     html += `<details data-k="smith"${o("smith", false)}><summary>铁匠铺</summary>`;
-    for (const hero of HEROES) {
-      if (!hero.smith) continue;             // militia stay off the anvil
-      const g = world.gear[hero.id] || {};
-      html += `<details data-k="smith-${hero.id}"${o("smith-" + hero.id, false)}>` +
-              `<summary>${hero.name}</summary><div class="leaf">`;
-      for (const slot of GEAR_SLOTS) {
-        if (slot === "wpn2_q" && !hero.wpn2) continue;
+    for (const id of companyGearIds()) {
+      const g = world.gear[id] || {};
+      html += `<details data-k="smith-${id}"${o("smith-" + id, false)}>` +
+              `<summary>${nameOf(id)}</summary><div class="leaf">`;
+      for (const slot of gearSlotsForId(id)) {
         const cur = g[slot] || "fan";
         const i = QUALITY_LADDER.indexOf(cur) + 1;
         if (i >= QUALITY_LADDER.length) {
@@ -1223,7 +1569,7 @@ function renderCity() {
           continue;
         }
         const nxt = QUALITY_LADDER[i], cost = SMITH_PRICE[nxt];
-        html += `<button onclick="uiSmith('${hero.id}','${slot}')" ` +
+        html += `<button onclick="uiSmith('${id}','${slot}')" ` +
                 `${world.gold < cost ? "disabled" : ""}>` +
                 `${SLOT_LABEL[slot]} ${QUALITY_LABEL[cur]}→${QUALITY_LABEL[nxt]} ${cost}两</button> `;
       }
@@ -1231,9 +1577,138 @@ function renderCity() {
     }
     html += `</details>`;
   }
+
+  if (has("stable")) {                       // 马行 — 驮马 raise the 粮草 carry (city)
+    const n = world.packs || 0, bill = packBill(n);
+    html += `<details data-k="stable"${o("stable", false)}><summary>马行</summary><div class="leaf">` +
+            `驮马 ${n}/${PACK_MAX} · 每匹增粮草上限 ${PACK_CARRY}<br>` +
+            (n >= PACK_MAX ? `驮队已满，足支远途。`
+              : `<button onclick="uiPack()" ${world.gold < bill ? "disabled" : ""}>购置驮马 ${bill}两</button>`) +
+            `</div></details>`;
+  }
+
+  if (has("yamen") && world.infamy > 0) {    // 衙门 — wash off 恶名 for silver (city)
+    const cost = world.infamy * ATONE_RATE;
+    html += `<details data-k="yamen" open><summary>衙门</summary>` +
+            `<div class="leaf">恶名 ${world.infamy} · 海捕${world.infamy >= INFAMY_HUNTED ? "已发" : "未发"}<br>` +
+            `<button onclick="uiAtone()" ${world.gold < cost ? "disabled" : ""}>` +
+            `纳赎罪银 ${cost}两</button></div></details>`;
+  }
   el.innerHTML = html;
   el.style.display = "block";
 }
+
+/* 校阅 · the roving review — ONE roster of characters (founders and hires alike,
+   every one with traits + star talents). Click any name for the full sheet. */
+let musterOpen = false;
+
+/* the whole company as uniform character entries — no 镖师/部曲 divide */
+function rosterList() {
+  const out = [];
+  for (const id of livingCore()) {
+    const h = HEROES.find((x) => x.id === id) || {};
+    out.push({ id, name: h.name || id, role: h.wpnLabel || "镖师", member: null });
+  }
+  for (const m of world.members)
+    out.push({ id: m.rid, name: (m.nick ? m.nick + "·" : "") + m.name,
+               role: m.bg_name || "部曲", member: m });
+  return out;
+}
+/* traits live on the progress (founders + hires both); fall back to the hire record */
+function traitsOf(id, member) {
+  const p = world.progress[id];
+  const t = (p && p.traits && p.traits.length) ? p.traits : (member ? member.traits : null);
+  return (t && t.length) ? t : [];
+}
+
+let gearMove = null;                          // {id, slot} picked up for a 调拨 transfer
+
+/* the gear chips on a muster row — click one, then another's same part, to 调拨 */
+function gearChips(id) {
+  const g = world.gear[id] || {};
+  return gearSlotsForId(id).map((slot) => {
+    const q = g[slot] || "fan";
+    const sel = gearMove && gearMove.id === id && gearMove.slot === slot;
+    return `<span class="gchip${sel ? " gsel" : ""}" onclick="uiGearChip('${id}','${slot}',event)" ` +
+           `title="${SLOT_LABEL[slot]}·${QUALITY_LABEL[q]}（点选调拨）">` +
+           `${SLOT_LABEL[slot]}${QUALITY_LABEL[q][0]}</span>`;
+  }).join("");
+}
+
+function renderMuster() {
+  const el = document.getElementById("musterpanel");
+  if (!el) return;
+  if (!musterOpen || busy) { el.style.display = "none"; el.innerHTML = ""; return; }
+  let html = `<button onclick="uiMuster()" style="float:right">收起 ▸</button>` +
+             `<b>校阅 · 风尘镖谱</b>` +
+             `<div style="color:#9a907a;font-size:11px;margin:1px 0 5px">` +
+             `在册 ${headcount()}人 · 日饷 ${dailyWage()}两 · 点名看详情，点装备格可调拨</div>`;
+  if (gearMove)
+    html += `<div style="color:#e8c14f;font-size:11px;margin:0 0 4px">调拨中：` +
+            `${nameOf(gearMove.id)}的「${SLOT_LABEL[gearMove.slot]}」——点另一人同部位即调拨，再点此格取消</div>`;
+  for (const c of rosterList()) {
+    const p = world.progress[c.id];
+    if (!p) continue;
+    const stat = R_ATTRS.map((a) => `${R_ANAME[a]}${p.stats[a]}/${capOf(p, a)}` +
+      (starsOf(p, a) ? "★".repeat(starsOf(p, a)) : "")).join(" ");
+    const tn = p.level >= MAX_LEVEL ? "满级" : (LEVEL_XP[p.level + 1] - p.xp) + "经验";
+    const tr = traitsOf(c.id, c.member).map((t) => R_TRAIT[t]).join("、") || "无异";
+    html += `<div class="mrow mclick" onclick="uiCharDetail('${c.id}',event)" title="点选看详情">` +
+            `<b>${c.name}</b> <span class="msub">${c.role} · Lv${p.level} · ${tn}</span>` +
+            `<div class="mstat">${stat}</div>` +
+            `<div class="mtrait">特性：${tr}</div>` +
+            `<div class="mgear">装备 ${gearChips(c.id)}</div></div>`;
+  }
+  el.innerHTML = html;
+  el.style.display = "block";
+}
+
+/* 调拨: pick up a member's gear slot, then click another's same part to swap them.
+   It is the company's own kit — rearrange it freely, anywhere (no forge needed). */
+window.uiGearChip = (id, slot, ev) => {
+  if (ev) ev.stopPropagation();
+  if (!world.gear[id]) world.gear[id] = {};
+  if (!gearMove || gearMove.slot !== slot) { gearMove = { id, slot }; refresh(); return; }
+  if (gearMove.id === id) { gearMove = null; refresh(); return; }     // clicked self — cancel
+  const a = gearMove.id, b = id;
+  if (!world.gear[a]) world.gear[a] = {};
+  const qa = world.gear[a][slot], qb = world.gear[b][slot];
+  if (qb) world.gear[a][slot] = qb; else delete world.gear[a][slot];
+  if (qa) world.gear[b][slot] = qa; else delete world.gear[b][slot];
+  log(`第${world.day}日 · 调拨${SLOT_LABEL[slot]}：${nameOf(a)}（${QUALITY_LABEL[qa || "fan"]}）` +
+      `⇄ ${nameOf(b)}（${QUALITY_LABEL[qb || "fan"]}）`, "sys");
+  gearMove = null;
+  refresh();
+};
+
+/* the full sheet for one character — floats over the board like a unit inspector */
+window.uiCharDetail = (id, ev) => {
+  const p = world.progress[id];
+  if (!p) return;
+  const c = rosterList().find((x) => x.id === id);
+  if (!c) return;
+  const m = c.member;
+  const tn = p.level >= MAX_LEVEL ? "满级" : (LEVEL_XP[p.level + 1] - p.xp) + "经验";
+  let rows = `<div class="irow">${m ? (m.bg_name || "部曲") : "镖局元老"} · ${c.role}</div>`;
+  rows += `<div class="irow">Lv <b>${p.level}</b> · ${tn}` + (m ? ` · 饷 ${m.wage}两` : "") + `</div>`;
+  for (const a of R_ATTRS) {
+    const s = starsOf(p, a);
+    rows += `<div class="irow">${R_ANAME[a]} <b>${p.stats[a]}</b> / ${capOf(p, a)}` +
+            (s ? ` <span style="color:#e8c14f">${"★".repeat(s)}</span>（成长快）` : "") + `</div>`;
+  }
+  const tr = traitsOf(id, m);
+  rows += `<div class="irow">特性：<b>${tr.map((t) => R_TRAIT[t]).join("、") || "无异"}</b></div>`;
+  const gl = gearSlotsForId(id).map((slot) =>
+    `${SLOT_LABEL[slot]}·${QUALITY_LABEL[(world.gear[id] || {})[slot] || "fan"]}`).join("　");
+  rows += `<div class="irow">装备：${gl}</div>`;
+  if (m && m.blurb) rows += `<div class="irow" style="color:#c9bda0">${m.blurb}</div>`;
+  if (m) rows += `<div class="iacts"><button class="prey" onclick="hideInspector();uiFireById('${id}')">遣散</button></div>`;
+  showInspectorAt(inspHead(c.name, "谱") + rows, ev);
+};
+window.uiFireById = (rid) => {
+  const i = world.members.findIndex((m) => m.rid === rid);
+  if (i >= 0) window.uiFire(i);
+};
 window.uiBuy = () => { marketBuy(); refresh(); };
 window.uiAtone = () => {
   const cost = world.infamy * ATONE_RATE;
@@ -1280,7 +1755,8 @@ window.uiHire = (rid) => {
   if (!r || world.gold < r.fee) return;
   world.gold -= r.fee;
   world.members.push(Object.assign({}, r));
-  world.progress[r.rid] = newProgress(r.stats, r.talents, 1);
+  world.progress[r.rid] = newProgress(r.stats, r.talents, 1, r.traits);
+  if (!world.gear[r.rid]) world.gear[r.rid] = {};   // the hire is equippable too
   world._pool.list = world._pool.list.filter((x) => x.rid !== rid);
   log(`第${world.day}日 · ${r.nick}·${r.name}（${r.bg_name}）入伙，雇金${r.fee}两`, "b");
   refresh();
@@ -1289,27 +1765,67 @@ window.uiFire = (i) => {
   if (i >= 0 && i < world.members.length) {
     const m = world.members.splice(i, 1)[0];
     delete world.progress[m.rid];
+    delete world.gear[m.rid];                  // his kit leaves with him
     world.provisions = Math.min(world.provisions, capacity());
     log(`第${world.day}日 · 遣散${m.name}`, "sys");
   }
   refresh();
 };
 window.uiMend = (uid) => {
-  const h = HEROES.find((x) => x.id === uid);
-  const g = world.gear[uid] || {};
-  let pts = (g.armor_dmg || 0) + (g.helm_dmg || 0);
-  if (g.wpn_dura != null) pts += (h.wpnDura || 0) - g.wpn_dura;
-  if (g.wpn2_dura != null) pts += (h.wpn2Dura || 0) - g.wpn2_dura;
-  const bill = Math.ceil(Math.max(0, pts) / 3);
+  const g = world.gear[uid];
+  if (!g) return;
+  const bill = Math.ceil(gearWearPts(uid) / 3);
   if (bill > 0 && world.gold >= bill) {
     world.gold -= bill;
     g.armor_dmg = 0; g.helm_dmg = 0;
     delete g.wpn_dura; delete g.wpn2_dura;
-    log(`第${world.day}日 · 铁铺修缮${h.name}甲械，费银${bill}两`, "sys");
+    log(`第${world.day}日 · 铁铺修缮${nameOf(uid)}甲械，费银${bill}两`, "sys");
   }
   refresh();
 };
-window.uiTown = () => { drawerOpen = !drawerOpen; refresh(); };
+/* 客栈: a rumor pins the nearest hidden 寨 AND its band — posts both 破寨 & 剿匪 镖单 */
+window.uiIntel = () => {
+  const lair = nearestHiddenLair();
+  if (!tradePost() || busy || !lair || world.gold < INTEL_PRICE) return;
+  world.gold -= INTEL_PRICE;
+  world.spotted.add(lair.id);
+  for (const p of world.parties)              // the band that dens there, too
+    if (p.alive && p.home && samePos(p.home, lair.at)) world.spotted.add(p.pid);
+  log(`第${world.day}日 · 客栈打探——${lair.name}及其匪众的去向有了着落！`, "r");
+  refresh();
+};
+/* 校场: pay to drill the WHOLE company up — pick an intensity, once a day */
+window.uiDrill = (tkey) => {
+  if (!tradePost() || busy || world.drillDay === world.day) return;
+  const tier = DRILL_TIERS.find((t) => t.key === tkey);
+  const crew = drillTrainees();
+  if (!tier || !crew.length) return;
+  const cost = drillCost(tier, crew.length);
+  if (world.gold < cost) return;
+  world.gold -= cost;
+  world.drillDay = world.day;
+  const rng = makeRng(`drill:${spec.id}:${world.day}:${tkey}:${world.gold}`);
+  for (const id of crew) {
+    const before = world.progress[id].level;
+    awardXp(world.progress[id], tier.xp, rng);
+    if (world.progress[id].level > before)
+      log(`第${world.day}日 · 校场操练——${nameOf(id)}升至 ${world.progress[id].level} 级！`, "b");
+  }
+  log(`第${world.day}日 · 校场${tier.name}全队${crew.length}人，费银${cost}两`, "sys");
+  refresh();
+};
+/* 马行: buy a 驮马 — each one raises the 粮草 carry, the reach of a longer march */
+window.uiPack = () => {
+  const s = tradePost();
+  const n = world.packs || 0, bill = packBill(n);
+  if (!s || s.kind !== "city" || busy || n >= PACK_MAX || world.gold < bill) return;
+  world.gold -= bill;
+  world.packs = n + 1;
+  log(`第${world.day}日 · 马行购置驮马一匹，费银${bill}两——粮草上限增至 ${capacity()}`, "b");
+  refresh();
+};
+window.uiMuster = () => { musterOpen = !musterOpen; if (musterOpen) drawerOpen = false; refresh(); };
+window.uiTown = () => { drawerOpen = !drawerOpen; if (drawerOpen) musterOpen = false; refresh(); };
 window.uiZoom = (f) => {
   const v0 = viewSize();
   const cx = cam.x + v0.w / 2, cy = cam.y + v0.h / 2;
@@ -1404,6 +1920,7 @@ async function boot() {
     return;
   }
   document.getElementById("subtitle").textContent = `${spec.name} — ${spec.era}`;
+  HEX = spec.hexSize || 22;     // bigger hexes on roomy maps — easier to read & click
   buildWorld();
   rngState = ((parseInt(new URLSearchParams(location.search).get("seed"), 10) || 1) >>> 0);
   const resumed = restoreState();   // the world survives the battle page
@@ -1423,6 +1940,7 @@ async function boot() {
 
 document.getElementById("campbtn").addEventListener("click", doCamp);
 document.getElementById("townbtn").addEventListener("click", window.uiTown);
+document.getElementById("musterbtn").addEventListener("click", window.uiMuster);
 document.getElementById("assault").addEventListener("click", doAssault);
 document.getElementById("restartw").addEventListener("click", () => {
   try {

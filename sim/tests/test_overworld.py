@@ -14,8 +14,9 @@ def W():
 
 def test_region_loads_with_history_intact():
     w = W()
-    assert (w.spec["cols"], w.spec["rows"]) == (44, 40)   # v0.35: geo-faithful 河北
-    assert len(w.tiles) == 44 * 40
+    # v0.44: the pilot enlarged — ×2 grid upscale + 渤海 coast/estuary + new seats
+    assert (w.spec["cols"], w.spec["rows"]) == (99, 81)
+    assert len(w.tiles) == 99 * 81
     # 938: 瀛州 (seat: 河间) rides under the Liao banner
     assert w.settlements["yingzhou"]["fanzhen"] == "卢龙·辽"
     assert w.settlements["weizhou"]["fanzhen"] == "天雄军"
@@ -40,8 +41,9 @@ def test_roads_beat_open_country():
     kinds = [w.tiles[k].terrain for k in path[1:-1]]
     paved = sum(1 for k in kinds if k in ("road", "bridge", "settlement"))
     assert paved >= len(kinds) - 1     # the 官道 carries it (waystations count)
-    # the 官道 makes 镇州→定州 a one-day ride; off-road it could not be
-    assert costs[w.settlements["dingzhou"]["at"]] <= MOVE_PER_DAY + 2
+    # the 官道 makes 镇州→定州 a ~two-day ride on the enlarged (×2) map; off-road
+    # over the doubled distance it could not be
+    assert costs[w.settlements["dingzhou"]["at"]] <= 2 * MOVE_PER_DAY + 2
 
 
 def test_rivers_block_except_crossings():
@@ -136,7 +138,7 @@ def test_provisions_burn_and_the_market_feeds():
     assert market_buy(w) == 0                           # no gates, no grain
     travel(w, "zhaozhou")
     assert w.provisions == 0                            # arrival alone feeds no one
-    w.gold = 100                                        # wages emptied the purse
+    w.gold = 200                                        # enough to fill the bigger packs
     cap, gold0 = w.capacity(), w.gold
     n = market_buy(w)                                   # 市集: silver for grain
     assert n == cap and w.provisions == cap
@@ -477,9 +479,9 @@ def test_repairs_in_towns_but_not_villages():
 def test_roster_carries_eats_and_is_paid():
     from sim.overworld import camp
     w = W()
-    assert w.headcount() == 4 and w.capacity() == 12   # base 4 + 2×4
+    assert w.headcount() == 4 and w.capacity() == 54   # base 6 + 12×4 (~12 days/head)
     assert w.daily_food() == 4 and w.daily_wage() == 8
-    assert w.provisions == 12                           # rode out with full packs
+    assert w.provisions == 54                           # rode out with full packs
     gold0, prov0 = w.gold, w.provisions
     camp(w)
     assert w.provisions == prov0 - 4                    # the company eats
@@ -493,7 +495,7 @@ def test_hire_grows_load_appetite_and_wage():
     cap0 = w.capacity()
     rec = recruits_here(w)[0]
     assert hire(w, rec["rid"]) is True
-    assert w.headcount() == 5 and w.capacity() == cap0 + 2
+    assert w.headcount() == 5 and w.capacity() == cap0 + 12
     assert w.daily_food() == 5 and w.daily_wage() == 8 + rec["wage"]
     assert w.members[0]["name"] == rec["name"]
     assert dismiss(w, 0) is True                        # let him go

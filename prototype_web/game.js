@@ -863,7 +863,9 @@ function checkEnd() {
     if (CAMPAIGN) {
       // the verdict flows back to the map: razed lairs, broken bands, retreats
       const verdict = { scenario: scenario.id, winner: e === 0 ? "player" : "enemy",
-        wear: units.filter((u) => u.side === "player").map((u) => ({
+        // hardcore (BB): who was KILLED — dead and didn't flee off the edge
+        fallen: units.filter((u) => u.side === "player" && !u.alive && !u.escaped).map((u) => u.id),
+        wear: units.filter((u) => u.side === "player" && u.alive).map((u) => ({
           id: u.id,
           armorLost: u.armorB0 - u.armorB,
           helmLost: u.armorH0 - u.armorH,
@@ -1353,6 +1355,119 @@ function log(html, cls) {
   logEl.scrollTop = logEl.scrollHeight;
 }
 
+/* ---------------- BB-style campaign deployment (web only) ----------------
+   The fixed scenarios stay deterministic test fixtures; a CAMPAIGN fight instead
+   fields the player's ACTUAL company (3–4 core + recruited hires) against a
+   RANDOMIZED warband drawn from the scenario's own faction pool — seeded by the
+   encounter so a given fight is stable across reloads. */
+function mkRng(seed) {
+  let a = (seed >>> 0) || 1;
+  const m = () => { a = (a + 0x6D2B79F5) >>> 0; let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+  return { next: m, int: (lo, hi) => lo + Math.floor(m() * (hi - lo + 1)),
+    pick: (arr) => arr[Math.floor(m() * arr.length)], chance: (p) => m() < p,
+    sample: (arr, k) => { const c = arr.slice(), o = []; for (let i = 0; i < k && c.length; i++) o.push(c.splice(Math.floor(m() * c.length), 1)[0]); return o; } };
+}
+const clampN = (x, lo, hi) => Math.max(lo, Math.min(hi, x));
+
+const KHITAN_IDS = new Set(["xiangwen", "psa", "psb", "psc", "psd", "sda", "sdb", "hqa", "hqb", "hqc", "hna", "hnb"]);
+const ENEMY_POOLS = {
+  bandit: { grunts: ["lla", "llb", "llc", "lld", "duyan", "erma", "xiaohu", "shemao", "zuanshan", "yemao"],
+            leaders: ["diao", "guoshanfeng"] },
+  khitan: { grunts: ["psa", "psb", "psc", "psd", "sda", "sdb", "hqa", "hqb", "hqc", "hna", "hnb"],
+            leaders: ["xiangwen"] },
+};
+/* a hire's combat kit is cloned from a background-appropriate template donor */
+const BG_KIT = { tianong: "xya", tuihuo: "duyan", liehu: "yan", huanseng: "shi",
+                 tangzishou: "liu", youxia: "zhou" };
+const BG_GLYPH = { tianong: "农", tuihuo: "寇", liehu: "猎", huanseng: "僧",
+                   tangzishou: "趟", youxia: "侠" };
+
+function hireTemplate(entry, stats, tplById) {
+  const donor = tplById[BG_KIT[entry.bg]] || tplById["xya"];
+  const t = JSON.parse(JSON.stringify(donor));
+  t.id = entry.id; t.name = entry.name || entry.id;
+  t.glyph = BG_GLYPH[entry.bg] || "勇"; t.side = "player"; t.leader = false;
+  for (const k of ["wpn_q", "wpn2_q", "armor_q", "helmet_q"]) delete t[k];   // hires ride 凡品
+  if (stats) Object.assign(t, { hpMax: stats.hp, skill: stats.skill, def: stats.dfn,
+    resolve: stats.resolve, initBase: stats.init, breathBase: stats.breath });
+  return t;
+}
+
+/* find `need` spawn hexes: the base zone first, then passable unoccupied neighbours */
+function expandSpawns(base, need, occupied) {
+  const out = [], used = new Set(occupied);
+  for (const s of base) {
+    const k = key(s[0], s[1]);
+    if (!used.has(k) && tiles.has(k) && !tiles.get(k).impassable) { used.add(k); out.push(s); }
+  }
+  for (let i = 0; i < out.length && out.length < need; i++) {
+    for (const nk of neighborsOf({ q: out[i][0], r: out[i][1] })) {
+      const t = tiles.get(nk);
+      if (!t || t.impassable || used.has(nk)) continue;
+      used.add(nk); out.push([t.q, t.r]);
+      if (out.length >= need) break;
+    }
+  }
+  return out;
+}
+
+function buildCampaignDeploy(scenario, tplById, roster, levels, gear, rng) {
+  const origP = scenario.units.filter((su) => tplById[su.id] && tplById[su.id].side === "player");
+  const origE = scenario.units.filter((su) => tplById[su.id] && tplById[su.id].side === "enemy");
+  const pool = ENEMY_POOLS[origE.some((su) => KHITAN_IDS.has(su.id)) ? "khitan" : "bandit"];
+  const occupied = new Set();
+  const deploy = [];
+  // --- the company: core (levels+gear) then hires, on the player zone ---
+  const pSpawns = expandSpawns(origP.map((su) => su.spawn), roster.length, occupied);
+  roster.forEach((r, i) => {
+    if (i >= pSpawns.length) return;          // ran out of room (a huge company)
+    occupied.add(key(pSpawns[i][0], pSpawns[i][1]));
+    let tpl = tplById[r.id] ? JSON.parse(JSON.stringify(tplById[r.id]))
+                            : hireTemplate(r, levels && levels[r.id], tplById);
+    if (tplById[r.id] && levels && levels[r.id]) {
+      const lv = levels[r.id];
+      Object.assign(tpl, { hpMax: lv.hp, skill: lv.skill, def: lv.dfn,
+        resolve: lv.resolve, initBase: lv.init, breathBase: lv.breath });
+    }
+    let su = { id: r.id, spawn: pSpawns[i] };
+    if (gear && gear[r.id]) su = Object.assign(su, gear[r.id]);   // smith work + dents (core)
+    deploy.push({ tpl, su });
+  });
+  // --- the warband: randomized, scaled to the company, at most one leader ---
+  const want = clampN(deploy.length + rng.int(-1, 2), 2, 9);
+  const eSpawns = expandSpawns(rng.sample(origE.map((su) => su.spawn), origE.length), want, occupied);
+  const n = Math.min(want, eSpawns.length);
+  const withLeader = n >= 3 && pool.leaders.length > 0 && rng.chance(0.5);
+  for (let i = 0; i < n; i++) {
+    const tid = (i === 0 && withLeader) ? rng.pick(pool.leaders) : rng.pick(pool.grunts);
+    const tpl = JSON.parse(JSON.stringify(tplById[tid]));
+    tpl.id = "e" + i;
+    deploy.push({ tpl, su: { id: "e" + i, spawn: eSpawns[i] } });
+  }
+  return deploy;
+}
+
+/* build one unit from a (template, scenario-entry) pair — shared by both paths */
+function buildUnit(tpl, su) {
+  const un = mkUnit(tpl, su.spawn[0], su.spawn[1], su);
+  if (su.armor_dmg || su.helm_dmg || su.wpn_dura != null || su.wpn2_dura != null) {
+    const tplW = tpl.wpn.label, tplW2 = tpl.wpn2 && tpl.wpn2.label;
+    for (const w of [un.wpn, un.wpn2].filter(Boolean)) {
+      const base = w.label.split("·").pop();
+      if (base === tplW && su.wpn_dura != null) w.duraNow = Math.min(su.wpn_dura, w.dura);
+      if (tplW2 && base === tplW2 && su.wpn2_dura != null) w.duraNow = Math.min(su.wpn2_dura, w.dura);
+    }
+    if (su.armor_dmg) { un.armorB = Math.max(0, un.armorB - su.armor_dmg); un.armorB0 = un.armorB; }
+    if (su.helm_dmg) { un.armorH = Math.max(0, un.armorH - su.helm_dmg); un.armorH0 = un.armorH; }
+  }
+  un.garrison = su.garrison ?? null;
+  un.home = { q: su.spawn[0], r: su.spawn[1] };
+  battleStats[un.id] = { dmg: 0, kills: 0 };
+  return un;
+}
+
 /* ---------------- boot ---------------- */
 async function boot() {
   logEl = document.getElementById("log");
@@ -1360,12 +1475,15 @@ async function boot() {
   const params = new URLSearchParams(location.search);
   const scenId = params.get("scenario") || window.__SJ_SCEN || "jiebiao";
   CAMPAIGN = params.get("campaign") === "1" || window.__SJ_CAMPAIGN === 1;
-  let CGEAR = null, CLEVELS = null;
+  let CGEAR = null, CLEVELS = null, CROSTER = null, CSEED = 1;
   if (CAMPAIGN) {
     try { CGEAR = window.__SJ_GEAR || JSON.parse(localStorage.getItem("sj_gear") || "null"); }
     catch (err) { CGEAR = null; }
     try { CLEVELS = window.__SJ_LEVELS || JSON.parse(localStorage.getItem("sj_levels") || "null"); }
     catch (err) { CLEVELS = null; }
+    try { CROSTER = window.__SJ_ROSTER || JSON.parse(localStorage.getItem("sj_roster") || "null"); }
+    catch (err) { CROSTER = null; }
+    CSEED = (window.__SJ_ENEMY_SEED >>> 0) || parseInt(localStorage.getItem("sj_seed") || "1", 10) || 1;
   }
   if (window.__SJ_CAMPAIGN) {
     const sp = document.getElementById("scenpick");
@@ -1392,38 +1510,30 @@ async function boot() {
   const tplById = {};
   for (const t of rosterTemplates()) tplById[t.id] = t;
   battleStats = {};
-  const seenIds = new Set();
-  units = scenario.units.map(su => {
-    if (!tplById[su.id]) throw new Error(`战役 ${scenId}：未知单位 "${su.id}"`);
-    if (seenIds.has(su.id)) throw new Error(`战役 ${scenId}：单位 "${su.id}" 重复上场（id 必须唯一）`);
-    seenIds.add(su.id);
-    let cond = null, tpl = tplById[su.id];
-    if (CLEVELS && tpl.side === "player" && CLEVELS[su.id]) {
-      const lv = CLEVELS[su.id];                  // the veteran's grown stats
-      tpl = Object.assign(JSON.parse(JSON.stringify(tpl)), {
-        hpMax: lv.hp, skill: lv.skill, def: lv.dfn, resolve: lv.resolve,
-        initBase: lv.init, breathBase: lv.breath });
-    }
-    if (CGEAR && tpl.side === "player" && CGEAR[su.id]) {
-      cond = CGEAR[su.id];
-      su = Object.assign({}, su, cond);          // the smith's work rides to war
-    }
-    const un = mkUnit(tpl, su.spawn[0], su.spawn[1], su); // su carries 品阶 overrides
-    if (cond) {                                  // ...and so do the dents
-      const tplW = tplById[su.id].wpn.label, tplW2 = tplById[su.id].wpn2 && tplById[su.id].wpn2.label;
-      for (const w of [un.wpn, un.wpn2].filter(Boolean)) {
-        const base = w.label.split("·").pop();
-        if (base === tplW && cond.wpn_dura != null) w.duraNow = Math.min(cond.wpn_dura, w.dura);
-        if (tplW2 && base === tplW2 && cond.wpn2_dura != null) w.duraNow = Math.min(cond.wpn2_dura, w.dura);
+  let deployList;
+  if (CAMPAIGN && Array.isArray(CROSTER) && CROSTER.length) {
+    // the campaign fields YOUR company vs a randomized warband (BB-style)
+    deployList = buildCampaignDeploy(scenario, tplById, CROSTER, CLEVELS, CGEAR, mkRng(CSEED));
+  } else {
+    // a fixed scenario (standalone / test fixture) — deterministic deployment
+    const seenIds = new Set();
+    deployList = scenario.units.map((su) => {
+      if (!tplById[su.id]) throw new Error(`战役 ${scenId}：未知单位 "${su.id}"`);
+      if (seenIds.has(su.id)) throw new Error(`战役 ${scenId}：单位 "${su.id}" 重复上场（id 必须唯一）`);
+      seenIds.add(su.id);
+      let tpl = JSON.parse(JSON.stringify(tplById[su.id]));
+      if (CLEVELS && tpl.side === "player" && CLEVELS[su.id]) {
+        const lv = CLEVELS[su.id];                 // the veteran's grown stats
+        Object.assign(tpl, { hpMax: lv.hp, skill: lv.skill, def: lv.dfn,
+          resolve: lv.resolve, initBase: lv.init, breathBase: lv.breath });
       }
-      if (cond.armor_dmg) { un.armorB = Math.max(0, un.armorB - cond.armor_dmg); un.armorB0 = un.armorB; }
-      if (cond.helm_dmg) { un.armorH = Math.max(0, un.armorH - cond.helm_dmg); un.armorH0 = un.armorH; }
-    }
-    un.garrison = su.garrison ?? null; // AI holds within this radius of home
-    un.home = { q: su.spawn[0], r: su.spawn[1] };
-    battleStats[un.id] = { dmg: 0, kills: 0 };
-    return un;
-  });
+      let su2 = su;
+      if (CGEAR && tpl.side === "player" && CGEAR[su.id])
+        su2 = Object.assign({}, su, CGEAR[su.id]);  // the smith's work rides to war
+      return { tpl, su: su2 };
+    });
+  }
+  units = deployList.map((d) => buildUnit(d.tpl, d.su));
   buildBoard();
   for (const line of scenario.intro || []) log(line, "sys");
   startRound();

@@ -44,15 +44,17 @@ FRIENDLY_KINDS = {"city", "town", "village"}   # where the bureau can trade
 GOLD_START = 100
 # ---- the roster: each rider is a mule AND a mouth (BB upkeep) ----
 CORE_ROSTER = ["wang", "liu", "shi", "yan"]   # the bureau's founding hands
-PROVISION_BASE = 4         # the cart hauls this much even empty
-CARRY_PER_HEAD = 2         # each rider shoulders this many 粮草
+PROVISION_BASE = 6         # the cart hauls this much even empty
+CARRY_PER_HEAD = 12        # each rider shoulders ~12 days of 粮草 (BB-style packs)
 EAT_PER_HEAD = 1           # ...and eats this much a day
 WAGE_PER_HEAD = 2          # 两/day, paid at dawn — the BB upkeep drain
 HIRE_FEE = {"乡勇": 40, "刀手": 90, "弓手": 110}   # one-time, by recruit kind
 RECRUIT_KINDS = {"乡勇": dict(wage=2), "刀手": dict(wage=4), "弓手": dict(wage=5)}
 PROVISION_PRICE = {"city": 2, "town": 2, "village": 3}   # 两 per unit of 粮草
-ESCORT_RATE = 40                                          # 两 per road-day
-BOUNTY_PAY = 260                                          # 两 per razed lair
+ESCORT_RATE = 48                                          # 两 per road-day
+ESCORT_BASE = 40                                          # flat 底银 on every escort
+BOUNTY_BASE = 180                                         # 剿匪赏 base...
+BOUNTY_RATE = 44                                          # ...plus this per day of trek to the 寨
 QUALITY_LADDER = ("fan", "liang", "jing", "zhen", "shen")
 WAYLAY_SCEN = {"caravan": "jiebiao", "patrol": "duijue"}  # the bureau turns bandit
 WAYLAY_LOOT = {"caravan": 150, "patrol": 60}
@@ -409,12 +411,14 @@ def jobs(world):
     for d in dests[: 1 if world.infamy >= INFAMY_PRICED else 3]:
         days = max(1, -(-costs[tuple(d["at"])] // MOVE_PER_DAY))
         out.append(dict(kind="escort", to=d["id"], name=f"押镖至{d['name']}",
-                        pay=days * ESCORT_RATE + 20, days=days))
+                        pay=ESCORT_BASE + days * ESCORT_RATE, days=days))
     for lair in world.settlements.values():
         if (lair["kind"] == "stronghold" and lair["id"] in world.spotted
                 and lair["id"] not in world.destroyed):
+            lk = tuple(lair["at"])
+            days = max(1, -(-costs[lk] // MOVE_PER_DAY)) if lk in costs else 1
             out.append(dict(kind="bounty", target=lair["id"],
-                            name=f"剿灭{lair['name']}", pay=BOUNTY_PAY))
+                            name=f"剿灭{lair['name']}", pay=BOUNTY_BASE + days * BOUNTY_RATE))
     return out
 
 

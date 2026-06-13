@@ -57,6 +57,17 @@
   #citypanel summary::before { content: "▸ "; color: var(--gold); }
   #citypanel details[open] > summary::before { content: "▾ "; }
   #citypanel .leaf { margin-left: 26px; }
+  /* the active 镖单, captioned over the map — always visible while one is in hand */
+  #contractcap {
+    position: absolute; top: 10px; left: 50%; transform: translateX(-50%);
+    z-index: 5; display: none; max-width: 64%;
+    background: rgba(43,38,32,.92); color: #f0d9a6;
+    border: 1px solid var(--gold); border-radius: 5px;
+    padding: 5px 14px; font-size: 13px; white-space: nowrap;
+    overflow: hidden; text-overflow: ellipsis; pointer-events: none;
+    box-shadow: 0 3px 12px rgba(0,0,0,.35); font-family: "Noto Sans SC", sans-serif;
+  }
+  #contractcap b { color: var(--gold); }
   #townbtn {
     position: absolute; right: 12px; top: 12px; z-index: 5; display: none;
     background: var(--gold); color: #fff; font-weight: bold;
@@ -71,6 +82,69 @@
     background: rgba(43,38,32,.88); color: var(--paper);
     border: 1px solid var(--ink-soft); border-radius: 5px;
   }
+  /* unit inspector: click a settlement / party / 镖队 to read it (a 查看 card) */
+  #inspector {
+    position: absolute; z-index: 7; display: none; width: 232px; max-width: 70%;
+    background: rgba(43,38,32,.96); color: var(--paper);
+    border: 1px solid var(--gold); border-radius: 6px;
+    box-shadow: 0 6px 20px rgba(0,0,0,.4);
+    padding: 9px 11px 11px; font-size: 12.5px; line-height: 1.55;
+    font-family: "Noto Sans SC", sans-serif;
+  }
+  #inspector .ihead { display: flex; align-items: baseline; gap: 6px; margin-bottom: 3px; }
+  #inspector .iname { font-size: 15px; font-weight: bold; color: #f0d9a6;
+    font-family: "LXGW WenKai", "Noto Serif SC", serif; letter-spacing: 1px; }
+  #inspector .itag { font-size: 11px; padding: 1px 6px; border-radius: 3px;
+    background: rgba(255,255,255,.12); color: #e8d9b0; }
+  #inspector .iclose { margin-left: auto; cursor: pointer; color: #c9bda0;
+    font-size: 16px; line-height: 1; padding: 0 2px; user-select: none; }
+  #inspector .iclose:hover { color: #fff; }
+  #inspector .irow { color: #d8cdb2; margin: 1px 0; }
+  #inspector .irow b { color: #f0d9a6; }
+  #inspector .iacts { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+  #inspector button {
+    font-size: 12px; padding: 3px 11px; background: #6e5a28;
+    color: var(--paper); border: none; border-radius: 3px; cursor: pointer;
+    font-family: inherit;
+  }
+  #inspector button:hover { background: #846e36; }
+  #inspector button.prey { background: #6e3328; }
+  #inspector button.prey:hover { background: #8c4233; }
+  #inspector button:disabled { background: #5a544a; color: #9a917f; cursor: default; }
+  /* 校阅 — the roving roster panel, openable anywhere (mirrors the town drawer) */
+  #musterpanel {
+    position: absolute; right: 0; top: 0; bottom: 0; z-index: 6;
+    display: none; width: 330px; overflow-y: auto;
+    background: rgba(43,38,32,.95); color: var(--paper);
+    padding: 10px 14px; font-size: 13px; line-height: 1.6;
+    border-left: 2px solid var(--gold); box-shadow: -6px 0 18px rgba(0,0,0,.35);
+  }
+  #musterpanel > b { color: #f0d9a6; }
+  #musterpanel h4 {
+    margin: 8px 0 2px; font-size: 12px; letter-spacing: 1px; color: #c9bda0;
+    border-bottom: 1px solid rgba(201,189,160,.35); padding-bottom: 2px;
+  }
+  #musterpanel .mrow { margin: 3px 0; padding: 2px 4px 3px;
+    border-bottom: 1px dotted rgba(201,189,160,.22); border-radius: 3px; }
+  #musterpanel .mclick { cursor: pointer; }
+  #musterpanel .mclick:hover { background: rgba(240,217,166,.10); }
+  #musterpanel .mrow b { color: #f0d9a6; }
+  #musterpanel .msub { color: #c9bda0; font-size: 11px; }
+  #musterpanel .mstat { color: #d8cdb2; font-size: 11px; margin-top: 1px; }
+  #musterpanel .mtrait { color: #b3a98c; font-size: 11px; margin: 1px 0 0 8px; }
+  #musterpanel .mgear { font-size: 11px; color: #c9bda0; margin: 2px 0 0 8px; }
+  #musterpanel .gchip {
+    display: inline-block; cursor: pointer; padding: 0 5px; margin: 1px 3px 1px 0;
+    border: 1px solid rgba(201,189,160,.35); border-radius: 3px;
+    background: rgba(255,255,255,.05); color: #d8cdb2;
+  }
+  #musterpanel .gchip:hover { background: rgba(240,217,166,.14); }
+  #musterpanel .gsel { border-color: var(--gold); background: rgba(184,134,11,.30); color: #f0d9a6; }
+  #musterpanel button {
+    font-size: 11.5px; padding: 2px 7px; background: #6e5a28; color: var(--paper);
+    border: none; border-radius: 3px; cursor: pointer; font-family: inherit;
+  }
+  #musterpanel button:hover { background: #846e36; }
   #citypanel b { color: #f0d9a6; }
   #citypanel h4 {
     margin: 7px 0 3px; font-size: 12px; letter-spacing: 1px; color: #c9bda0;
@@ -148,6 +222,7 @@
   <span class="stat" id="goldlabel">银两 100</span>
   <span class="stat" id="contractlabel" style="color:#6b5520"></span>
   <span class="stat" id="loclabel"></span>
+  <button id="musterbtn">校阅</button>
   <button id="assault" style="display:none">攻寨</button>
   <button id="campbtn">扎营一日</button>
   <button id="restartw">重开</button>
@@ -155,6 +230,9 @@
 </header>
 <div id="main">
   <div id="boardwrap"><svg id="board"></svg><div id="citypanel"></div>
+    <div id="musterpanel"></div>
+    <div id="inspector"></div>
+    <div id="contractcap"></div>
     <button id="townbtn">入城</button>
     <div id="zoomctl">
       <button onclick="uiZoom(1.25)" title="放大">＋</button>
@@ -163,7 +241,7 @@
     </div></div>
   <div id="panel">
     <h3>移动预览 · 悬停舆图</h3>
-    <div id="hoverinfo">悬停可达之处查看路线与行程，点击即出发。拖拽或贴边可挪图，滚轮缩放。官道日行八格，山林减半；大河层峦不可逾，须寻渡桥关陉。粮草须在市集购买。</div>
+    <div id="hoverinfo">悬停可达之处查看路线与行程，点击空地即出发。点城寨、商旅、巡骑或自家镖队（圆点）可查看详情。拖拽或贴边可挪图，滚轮缩放。官道日行八格，山林减半；大河层峦不可逾，须寻渡桥关陉。粮草须在市集购买。</div>
     <h3>行程日志 · 风尘镖路</h3>
     <div id="log"></div>
   </div>
